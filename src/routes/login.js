@@ -4,8 +4,8 @@
  * Xử lý form login và xác thực người dùng
  */
 
-const express = require('express');
-const { authenticate } = require('../services/userService');
+import express from 'express';
+import { authenticate } from '../services/userService.js';
 
 const router = express.Router();
 
@@ -218,5 +218,5 @@ router.post('/login', express.urlencoded({ extended: false }), async (req, res) 
   res.redirect('/');
 });
 
-module.exports = router;
+export default router;
 

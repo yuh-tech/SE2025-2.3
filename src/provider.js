@@ -4,14 +4,14 @@
  * File này khởi tạo và cấu hình oidc-provider
  */
 
-const { Provider } = require('oidc-provider');
-const { generateKeyPair, exportJWK } = require('jose');
-const path = require('path');
+import { Provider } from 'oidc-provider';
+import { generateKeyPair, exportJWK } from 'jose';
+import path from 'path';
 
-const settings = require('./config/settings');
-const clients = require('./config/clients');
-const { Account } = require('./services/userService');
-const { createAdapter } = require('./utils/db');
+import settings from './config/settings.js';
+import clients from './config/clients.js';
+import { Account } from './services/userService.js';
+import { createAdapter } from './utils/db.js';
 
 /**
  * Sinh cặp key RSA cho signing JWT
@@ -304,7 +304,5 @@ async function createProvider(issuer) {
   return provider;
 }
 
-module.exports = {
-  createProvider,
-};
+export { createProvider };
 

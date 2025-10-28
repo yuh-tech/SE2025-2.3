@@ -1,12 +1,12 @@
 /**
  * Cấu hình chính cho OIDC Provider
- * 
- * File này chứa tất cả các cấu hình cho oidc-provider
+ * * File này chứa tất cả các cấu hình cho oidc-provider
+ * ĐÃ ĐƯỢC CẬP NHẬT HOÀN CHỈNH CHO PHIÊN BẢN v9.x
  * Tham khảo: https://github.com/panva/node-oidc-provider/blob/main/docs/README.md
  */
 
-const { getAllScopes } = require('./scopes');
-const { claims } = require('./claims');
+import { getAllScopes } from './scopes.js';
+import { claims } from './claims.js';
 
 // TTL (Time To Live) cho các loại token (đơn vị: giây)
 const TTL = {
@@ -24,11 +24,8 @@ const TTL = {
  * Cấu hình OIDC Provider
  */
 const settings = {
-  // Các tính năng được bật
+  devInteractions: false,
   features: {
-    // Device Flow - cho thiết bị IoT
-    deviceFlow: { enabled: false },
-    
     // Client Credentials Grant
     clientCredentials: { enabled: true },
     
@@ -52,59 +49,82 @@ const settings = {
     // Introspection endpoint
     introspection: { enabled: true },
     
-    // PKCE (Proof Key for Code Exchange) - bắt buộc cho public clients
-    pkce: {
-      required: (ctx, client) => {
-        // Bắt buộc PKCE cho public clients (SPA, Mobile)
-        return client.tokenEndpointAuthMethod === 'none';
-      },
-    },
-    
-    // Registration endpoint - Dynamic Client Registration
-    registration: { 
-      enabled: false, // Tắt trong demo, bật trong production nếu cần
-    },
-    
-    // Registration Management
-    registrationManagement: { enabled: false },
-    
     // User info endpoint
     userinfo: { enabled: true },
-    
-    // JWT Access Tokens
-    jwtAccessTokens: { enabled: false },
-    
+
     // Encrypted ID Tokens
     encryption: { enabled: false },
     
-    // Session management
-    sessionManagement: { enabled: true },
-    
-    // Back-channel logout
-    backchannelLogout: { enabled: false },
-    
-    // Front-channel logout  
-    frontchannelLogout: { enabled: false },
-    
-    // Pushed Authorization Requests (PAR)
-    pushedAuthorizationRequests: { enabled: false },
-    
-    // JWT Response Modes
-    jwtResponseModes: { enabled: false },
-    
-    // Request Objects
-    request: { enabled: false },
-    requestUri: { enabled: false },
-    
-    // Rich Authorization Requests
-    richAuthorizationRequests: { enabled: false },
-    
-    // Mutual TLS
-    mTLS: { enabled: false },
-    
-    // DPoP (Demonstrating Proof-of-Possession)
-    dPoP: { enabled: false },
   },
+  
+  // Registration Management
+  registrationManagement: { 
+    enabled: false 
+  },
+  
+  // Session management
+  sessionManagement: { 
+    enabled: true 
+  },
+  
+  // Back-channel logout
+  backchannelLogout: { 
+    enabled: false 
+  },
+  
+  // Front-channel logout  
+  frontchannelLogout: { 
+    enabled: false 
+  },
+
+  // Pushed Authorization Requests (PAR)
+  pushedAuthorizationRequests: { 
+    enabled: false 
+  },
+  
+  // JWT Response Modes
+  jwtResponseModes: { 
+    enabled: false 
+  },
+  
+  // Request Objects
+  request: { 
+    enabled: false 
+  },
+  requestUri: { 
+    enabled: false 
+  },
+  
+  // Rich Authorization Requests
+  richAuthorizationRequests: { 
+    enabled: false 
+  },
+  
+  // Mutual TLS
+  mTLS: { 
+    enabled: false 
+  },
+  
+  // DPoP (Demonstrating Proof-of-Possession)
+  dPoP: { 
+    enabled: false 
+  },
+
+  // PKCE
+  pkce: {
+    methods: ['S256', 'plain'],
+    required: (ctx, client) => {
+      return client.tokenEndpointAuthMethod === 'none';
+    },
+  },
+
+  // Formats
+  formats: {
+    AccessToken: 'jwt',
+    ClientCredentials: 'jwt',
+  },
+
+  // --- CÁC CẤU HÌNH CÒN LẠI ---
 
   // Các claims được hỗ trợ
   claims: Object.keys(claims).reduce((acc, key) => {
@@ -229,17 +249,8 @@ const settings = {
   // Adapter (storage)
   adapter: undefined, // Will be set in provider.js
 
-  // Formats
-  formats: {
-    AccessToken: 'jwt', // hoặc 'opaque'
-    ClientCredentials: 'jwt',
-  },
-
   // Conformance
   conformIdTokenClaims: false,
-
-  // PKCE methods
-  pkceMethods: ['S256', 'plain'],
 
   // Issues (token issuance configuration)
   issueRefreshToken: async (ctx, client, code) => {
@@ -268,5 +279,4 @@ const settings = {
   },
 };
 
-module.exports = settings;
-
+export default settings;

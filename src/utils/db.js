@@ -200,7 +200,7 @@ class Database {
 
 const db = new Database();
 
-module.exports = {
+export {
   MemoryAdapter,
   createAdapter,
   db,
