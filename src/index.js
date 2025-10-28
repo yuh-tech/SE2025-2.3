@@ -4,15 +4,16 @@
  * Entry point chính của ứng dụng
  */
 
-require('dotenv').config();
-const express = require('express');
-const session = require('express-session');
-const path = require('path');
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
+import session from 'express-session';
+import path from 'path';
 
-const { createProvider } = require('./provider');
-const loginRouter = require('./routes/login');
-const interactionRouter = require('./routes/interaction');
-const logoutRouter = require('./routes/logout');
+import { createProvider } from './provider.js';
+import loginRouter from './routes/login.js';
+import interactionRouter from './routes/interaction.js';
+import logoutRouter from './routes/logout.js';
 
 // Configuration
 const PORT = process.env.PORT || 3000;
@@ -23,7 +24,7 @@ const app = express();
 
 // Session configuration
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'change-this-secret-in-production',
+  secret: process.env.SESSION_SECRET || ['secret-key-1', 'secret-key-2'],
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -35,11 +36,10 @@ const sessionConfig = {
 };
 
 // Optional: Use Redis for session storage
+import RedisStore from 'connect-redis';
+import { createClient } from 'redis';
 if (process.env.USE_REDIS === 'true' && process.env.REDIS_URL) {
   try {
-    const RedisStore = require('connect-redis').default;
-    const { createClient } = require('redis');
-    
     const redisClient = createClient({
       url: process.env.REDIS_URL,
       legacyMode: false,

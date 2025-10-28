@@ -5,19 +5,22 @@
  * đăng ký động thông qua Dynamic Client Registration endpoint
  */
 
+// Đây là phần đăng kí của client app vào Authorization Server bằng form đăng kí
+// Tuy nhiên đang test ở đây là form đăng kí được tạo sẵn 
+
 const clients = [
   {
-    client_id: 'demo-client',
-    client_secret: 'demo-client-secret',
+    client_id: 'my_app',
+    client_secret: 'demo-client-secret', // phần này sau này sẽ lưu vào DB và hash bằng bcrypt
     redirect_uris: ['http://localhost:3000/callback', 'http://localhost:8080/callback'],
     post_logout_redirect_uris: ['http://localhost:3000'],
     response_types: ['code'], // Authorization Code Flow
     grant_types: ['authorization_code', 'refresh_token'],
     scope: 'openid profile email offline_access',
     token_endpoint_auth_method: 'client_secret_basic',
-  },
+  },  
   {
-    client_id: 'spa-client',
+    client_id: 'mobile_app',
     // SPA client không có secret (public client)
     redirect_uris: ['http://localhost:4200/callback'],
     post_logout_redirect_uris: ['http://localhost:4200'],
@@ -28,7 +31,7 @@ const clients = [
     application_type: 'web',
   },
   {
-    client_id: 'service-client',
+    client_id: 'service_client',
     client_secret: 'service-client-secret',
     grant_types: ['client_credentials'],
     scope: 'api:read api:write',
@@ -36,7 +39,7 @@ const clients = [
     response_types: [],
   },
   {
-    client_id: 'mobile-app',
+    client_id: 'native_app',
     redirect_uris: ['myapp://callback'],
     post_logout_redirect_uris: ['myapp://logout'],
     response_types: ['code'],
@@ -47,5 +50,5 @@ const clients = [
   }
 ];
 
-module.exports = clients;
+export default clients;
 

@@ -4,8 +4,8 @@
  * Xử lý OIDC interactions (login prompt, consent, etc.)
  */
 
-const express = require('express');
-const { getScopeDescription } = require('../config/scopes');
+import express from 'express';
+import { getScopeDescription } from '../config/scopes.js';
 
 const router = express.Router();
 
@@ -364,5 +364,5 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
-module.exports = router;
+export default router;
 
