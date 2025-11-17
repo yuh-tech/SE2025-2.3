@@ -1,10 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title><%= title %></title>
-</head>
-<body>
-  <h1>Welcome to the Client App 👋</h1>
-  <p>Trang này sẽ có nút đăng ký, đăng nhập, và đăng nhập qua OAuth sau này.</p>
-</body>
-</html>
+<%- include('partials/header') %>
+
+<% if (user) { %>
+  <p>Chào mừng quay lại, <strong><%= user %></strong>!</p>
+  <a href="/settings" class="btn">Vào cài đặt</a>
+<% } else { %>
+  <p>Chào mừng đến với <strong>Client App</strong>.</p>
+  <a href="/login" class="btn">Đăng nhập</a>
+  <a href="/signup" class="btn">Đăng ký</a>
+<% } %>
+
+<%- include('partials/footer') %>
