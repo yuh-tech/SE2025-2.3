@@ -1,0 +1,16 @@
+<%- include('partials/header') %>
+
+<h2>Giỏ hàng</h2>
+
+<% if (!cart.length) { %>
+  <p>Giỏ hàng trống.</p>
+<% } else { %>
+  <ul>
+    <% cart.forEach((item, idx) => { %>
+      <li><%= item.name %> — $<%= item.price %></li>
+    <% }) %>
+  </ul>
+  <a href="/checkout">Checkout</a>
+<% } %>
+
+<%- include('partials/footer') %>

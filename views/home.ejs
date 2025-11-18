@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+
+<section class="hero">
+  <h1>Chào mừng đến Sunshine Boutique 💙</h1>
+  <p>Thời trang mang màu sắc nhẹ nhàng, tinh khiết – dành cho bạn.</p>
+  <a href="/products" class="hero-btn">Khám phá ngay</a>
+</section>
+
+<section class="suggest-section">
+  <h2>Gợi ý cho bạn</h2>
+
+  <div class="product-grid">
+    <% products.forEach(p => { %>
+      <div class="product-card">
+        <img src="<%= p.image %>" alt="<%= p.name %>">
+
+        <h3><%= p.name %></h3>
+        <p class="price"><%= p.price.toLocaleString() %> đ</p>
+
+        <a class="detail-btn" href="/product/<%= p.id %>">Xem chi tiết</a>
+      </div>
+    <% }) %>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

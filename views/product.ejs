@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+
+<h2><%= product.name %></h2>
+<p><%= product.desc %></p>
+<p class="price">$<%= product.price %></p>
+<form method="POST" action="/cart/add/<%= product.id %>">
+  <button type="submit">Add to cart</button>
+</form>
+
+<a href="/products">Back to products</a>
+
+<%- include('partials/footer') %>

@@ -1,36 +1,39 @@
 <%- include('partials/header') %>
 
-<% if (error) { %>
-  <div class="alert error"><%= error %></div>
-<% } %>
+<section class="login-section">
+  <div class="login-container">
+    <h2>Đăng nhập tài khoản</h2>
 
-<% if (success) { %>
-  <div class="alert success"><%= success %></div>
-<% } %>
+    <% if (error) { %>
+      <div class="alert error"><%= error %></div>
+    <% } %>
 
-<h2>Đăng nhập bằng tài khoản local</h2>
-<form method="POST" action="/login" class="local-form">
-  <input type="text" name="username" placeholder="Tên đăng nhập" required autofocus />
-  <input type="password" name="password" placeholder="Mật khẩu" required />
-  <button type="submit">Đăng nhập</button>
-</form>
+    <% if (success) { %>
+      <div class="alert success"><%= success %></div>
+    <% } %>
 
-<div class="oauth-divider">
-  <span>HOẶC</span>
-</div>
+    <form method="POST" action="/login" class="login-form">
+      <input type="text" name="username" placeholder="Tên đăng nhập" required autofocus>
+      <input type="password" name="password" placeholder="Mật khẩu" required>
+      <button type="submit" class="login-btn">Đăng nhập</button>
+    </form>
 
-<div class="oauth-buttons">
-  <a href="/auth/google" class="btn oauth-btn google">
-    <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google" width="20" />
-    Đăng nhập bằng Google
-  </a>
+    <div class="oauth-divider"><span>HOẶC</span></div>
 
-  <a href="/auth/email" class="btn oauth-btn email">
-    <img src="https://www.svgrepo.com/show/475656/email-icon.svg" alt="Email" width="20" />
-    Đăng nhập bằng Email
-  </a>
-</div>
+    <div class="oauth-buttons">
+      <a href="/auth/google" class="btn oauth-btn google">
+        <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google" width="20">
+        Đăng nhập bằng Google
+      </a>
 
-<p>Chưa có tài khoản? <a href="/signup">Đăng ký ngay</a></p>
+      <a href="/auth/email" class="btn oauth-btn email">
+        <img src="/images/email-1573-svgrepo-com.svg" alt="Email" width="20">
+        Đăng nhập bằng Email
+      </a>
+    </div>
+
+    <p class="signup-text">Chưa có tài khoản? <a href="/signup">Đăng ký ngay</a></p>
+  </div>
+</section>
 
 <%- include('partials/footer') %>

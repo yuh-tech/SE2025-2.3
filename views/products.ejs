@@ -1,0 +1,17 @@
+<%- include('partials/header') %>
+
+<h2>Products</h2>
+<div class="grid">
+  <% products.forEach(p => { %>
+    <div class="card">
+      <h3><a href="/product/<%= p.id %>"><%= p.name %></a></h3>
+      <p><%= p.desc %></p>
+      <p class="price">$<%= p.price %></p>
+      <form method="POST" action="/cart/add/<%= p.id %>">
+        <button type="submit">Add to cart</button>
+      </form>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+
+<h2>Checkout</h2>
+<p>Bạn đang thanh toán với tài khoản: <%= currentUser.displayName || currentUser.username %></p>
+<p>Đơn hàng demo (thực tế: tích hợp payment gateway)</p>
+<form method="POST" action="/checkout">
+  <button type="submit">Xác nhận đặt hàng</button>
+</form>
+
+<%- include('partials/footer') %>

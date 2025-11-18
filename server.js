@@ -2,8 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
-const fs = require('fs').promises;
-const bcrypt = require('bcrypt');
+const bodyParser = require('body-parser');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,178 +13,132 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
+  secret: process.env.SESSION_SECRET || 'secret-key',
   resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    httpOnly: true, 
-    secure: false,
-    maxAge: 24 * 60 * 60 * 1000 
-  }
+  saveUninitialized: true
 }));
 
-// Luôn có user trong template
+// Middleware truyền biến cho tất cả EJS
 app.use((req, res, next) => {
-  res.locals.user = req.session.user || null;
+  res.locals.currentUser = req.session.user || null;
+  res.locals.cart = req.session.cart || [];
   next();
 });
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+// ===== Demo database =====
+const demoUsers = [
+  { username: 'admin', password: '123456', displayName: 'Admin' },
+  { username: 'minhhang', password: '123456', displayName: 'Hằng Minh' }
+];
 
-// ===== File users.json =====
-const USERS_FILE = path.join(__dirname, 'users.json');
-(async () => {
-  try { await fs.access(USERS_FILE); }
-  catch { await fs.writeFile(USERS_FILE, '[]'); }
-})();
-
-// ===== Helper =====
-async function getUsers() {
-  const data = await fs.readFile(USERS_FILE, 'utf-8');
-  return JSON.parse(data);
-}
-async function saveUsers(users) {
-  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-// ===== Validation =====
-const validateUsername = (u) => typeof u === 'string' && u.length >= 3 && /^[a-zA-Z0-9_]+$/.test(u);
-const validatePassword = (p) => typeof p === 'string' && p.length >= 6;
-
-// ===== Middleware bảo vệ route =====
-app.use((req, res, next) => {
-  const publicPaths = ['/login', '/signup', '/auth/google', '/auth/email', '/auth/callback'];
-  if (!req.session.user && !publicPaths.includes(req.path) && req.path !== '/') {
-    return res.redirect('/login');
-  }
-  next();
-});
+const demoProducts = [
+  { id: 1, name: 'Áo Phao', price: 250000, image: '/images/ao_phap_nu.png' },
+  { id: 2, name: 'Quần Jean', price: 350000, image: '/images/quan_jean.png' },
+  { id: 3, name: 'Váy ', price: 300000, image: '/images/vay.png' },
+  { id: 4, name: 'Giày Sneakers', price: 450000, image: '/images/giay.png' },
+];
 
 // ===== Routes =====
 
 // Trang chủ
-app.get('/', (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
-  res.render('index', { title: 'Client App - Trang chủ' });
+app.get(['/','/home'], (req, res) => {
+  res.render('home', { title: 'Trang chủ', products: demoProducts });
 });
 
-// Đăng ký
-app.get('/signup', (req, res) => res.render('signup', { title: 'Đăng ký', error: null, success: null }));
-app.post('/signup', async (req, res) => {
-  const { username, password } = req.body;
-  if (!validateUsername(username)) return res.render('signup', { title: 'Đăng ký', error: 'Tên đăng nhập không hợp lệ', success: null });
-  if (!validatePassword(password)) return res.render('signup', { title: 'Đăng ký', error: 'Mật khẩu ít nhất 6 ký tự', success: null });
-
-  const users = await getUsers();
-  if (users.some(u => u.username === username)) return res.render('signup', { title: 'Đăng ký', error: 'Tên đăng nhập đã tồn tại', success: null });
-
-  users.push({ username, password: await bcrypt.hash(password, 10) });
-  await saveUsers(users);
-  res.render('signup', { title: 'Đăng ký', error: null, success: 'Đăng ký thành công! Hãy đăng nhập.' });
-});
-
-// Đăng nhập
+// Login form
 app.get('/login', (req, res) => {
-  const success = req.query.msg === 'password_changed' 
-    ? 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại bằng mật khẩu mới.' 
-    : null;
-  res.render('login', { title: 'Đăng nhập', error: null, success });
-});
-
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const users = await getUsers();
-  const user = users.find(u => u.username === username);
-
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.render('login', { title: 'Đăng nhập', error: 'Sai tên đăng nhập hoặc mật khẩu', success: null });
-  }
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) {
-    return res.render('login', { title: 'Đăng nhập', error: 'Sai mật khẩu', success: null });
-  }
-
-  req.session.user = username;
-  res.redirect('/settings');
-});
-
-// Cài đặt
-app.get('/settings', (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
-  res.render('settings', { title: 'Cài đặt' });
-});
-
-// Đổi mật khẩu
-app.get('/changepassword', (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
-  res.render('changepassword', { title: 'Đổi mật khẩu', error: null, success: null });
-});
-
-app.post('/changepassword', async (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
-
-  const { oldPassword, newPassword, confirmPassword } = req.body;
-  const users = await getUsers();
-  const user = users.find(u => u.username === req.session.user);
-
-  if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
-    return res.render('changepassword', { title: 'Đổi mật khẩu', error: 'Mật khẩu cũ không đúng', success: null });
-  }
-
-  if (newPassword !== confirmPassword) {
-    return res.render('changepassword', { title: 'Đổi mật khẩu', error: 'Mật khẩu mới không khớp', success: null });
-  }
-
-  if (!validatePassword(newPassword)) {
-    return res.render('changepassword', { title: 'Đổi mật khẩu', error: 'Mật khẩu mới phải ít nhất 6 ký tự', success: null });
-  }
-
-  user.password = await bcrypt.hash(newPassword, 10);
-  await saveUsers(users);
-
-  req.session.destroy(() => {
-    res.redirect('/login?msg=password_changed');
+  res.render('login', {
+    title: 'Đăng nhập',
+    error: null,    // không có lỗi ban đầu
+    success: null   // không có thông báo thành công ban đầu
   });
 });
 
-// OAuth Routes
-app.get('/auth/google', (req, res) => {
-  const state = Math.random().toString(36).substring(7);
-  req.session.oauthState = state;
-  const authUrl = `${process.env.OAUTH_SERVER_URL}/authorize?response_type=code&client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&scope=openid profile email&state=${state}`;
-  res.redirect(authUrl);
+
+// Login xử lý
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  const user = demoUsers.find(u => u.username === username && u.password === password);
+
+  if (user) {
+    req.session.user = user;
+    req.session.cart = req.session.cart || [];
+
+    res.redirect('/home');
+  } else {
+    res.render('login', {
+      title: 'Đăng nhập',
+      error: 'Sai username hoặc password', // hiển thị thông báo lỗi
+      success: null
+    });
+  }
 });
 
-app.get('/auth/email', (req, res) => {
-  const state = Math.random().toString(36).substring(7);
-  req.session.oauthState = state;
-  const authUrl = `${process.env.OAUTH_SERVER_URL}/authorize?response_type=code&client_id=${process.env.EMAIL_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.REDIRECT_URI)}&scope=openid email&state=${state}`;
-  res.redirect(authUrl);
+// GET /signup
+app.get('/signup', (req, res) => {
+  res.render('signup', {
+    title: 'Đăng ký',
+    error: null,
+    success: null
+  });
 });
 
-app.get('/auth/callback', async (req, res) => {
-  const { code, state } = req.query;
 
-  if (!code || state !== req.session.oauthState) {
-    return res.send('Lỗi bảo mật: state không khớp!');
+// POST /signup
+app.post('/signup', (req, res) => {
+  const { username, displayName, password, confirmPassword } = req.body;
+
+  // Kiểm tra trùng username
+  if (demoUsers.some(u => u.username === username)) {
+    return res.render('signup', { title: 'Đăng ký', error: 'Username đã tồn tại', success: null });
   }
 
-  delete req.session.oauthState;
-  req.session.user = 'google_user';
-  res.redirect('/settings');
+  // Kiểm tra mật khẩu
+  if (password !== confirmPassword) {
+    return res.render('signup', { title: 'Đăng ký', error: 'Mật khẩu không khớp', success: null });
+  }
+
+  // Tạo user mới
+  const newUser = { username, displayName, password };
+  demoUsers.push(newUser);
+
+  res.render('signup', { title: 'Đăng ký', error: null, success: 'Đăng ký thành công! Bạn có thể đăng nhập ngay.' });
 });
 
-// 404 & Error handler
-app.use((req, res) => res.status(404).render('error', { title: '404', message: 'Trang không tồn tại' }));
-app.use((err, req, res, next) => {
-  console.error('Lỗi server:', err);
-  res.status(500).render('error', { title: 'Lỗi', message: 'Có lỗi xảy ra!' });
+
+// Logout
+app.post('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/login');
 });
 
-// Khởi động
+// Products page
+app.get('/products', (req, res) => {
+  res.render('products', { title: 'Sản phẩm', products: demoProducts });
+});
+
+// Cart page
+app.get('/cart', (req, res) => {
+  const cart = req.session.cart || [];
+  res.render('cart', { title: 'Giỏ hàng', cart });
+});
+
+// Add to cart
+app.post('/cart/add/:id', (req, res) => {
+  const productId = parseInt(req.params.id);
+  const product = demoProducts.find(p => p.id === productId);
+  if (!product) return res.redirect('/products');
+
+  req.session.cart = req.session.cart || [];
+  req.session.cart.push(product);
+
+  res.redirect('/cart');
+});
+
+// ===== Server start =====
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 app.listen(PORT, () => {
-  console.log(`Client App đang chạy tại: http://localhost:${PORT}`);
-  console.log(`Dừng server: Ctrl+C`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
