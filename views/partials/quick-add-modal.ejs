@@ -1,0 +1,87 @@
+<!-- views/partials/quick-add-modal.ejs -->
+<div id="quickAddModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <span class="modal-close">×</span>
+
+    <div class="modal-product">
+      <img id="modalImg" src="" alt="">
+      <div class="modal-info">
+        <h3 id="modalName"></h3>
+        <p class="modal-price" id="modalPrice"></p>
+      </div>
+    </div>
+
+    <div class="modal-options">
+      <div class="option-group">
+        <label>Màu sắc:</label>
+        <div class="color-options">
+          <button type="button" class="color-btn" data-color="Trắng kem">Trắng kem</button>
+          <button type="button" class="color-btn" data-color="Xanh mint">Xanh mint</button>
+          <button type="button" class="color-btn" data-color="Hồng phấn">Hồng phấn</button>
+          <button type="button" class="color-btn" data-color="Be">Be</button>
+          <button type="button" class="color-btn" data-color="Đen">Đen</button>
+        </div>
+      </div>
+
+      <div class="option">
+        <label>Kích cỡ:</label>
+        <div class="size-options">
+          <button type="button" class="size-btn" data-size="S">S</button>
+          <button type="button" class="size-btn" data-size="M">M</button>
+          <button type="button" class="size-btn" data-size="L">L</button>
+          <button type="button" class="size-btn" data-size="XL">XL</button>
+        </div>
+      </div>
+
+      <p class="modal-warning" style="color:#e74c3c; margin:15px 0; display:none;">
+        Vui lòng chọn màu sắc và kích cỡ!
+      </p>
+
+      <button id="modalAddBtn" class="add-to-cart-btn" disabled>Thêm vào giỏ hàng</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 9999; display: flex;
+    align-items: center; justify-content: center; backdrop-filter: blur(8px);
+  }
+  .modal-content {
+    background: white; width: 90%; max-width: 420px; border-radius: 20px;
+    padding: 25px; position: relative; animation: pop 0.3s ease;
+  }
+  @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .modal-close {
+    position: absolute; top: 12px; right: 18px; font-size: 28px;
+    cursor: pointer; color: #999; font-weight: bold;
+  }
+  .modal-product {
+    display: flex; gap: 15px; align-items: center; margin-bottom: 20px;
+  }
+  #modalImg { width: 100px; height: 130px; object-fit: cover; border-radius: 12px; }
+  .modal-info h3 { font-size: 18px; margin: 0; }
+  .modal-price { font-size: 20px; font-weight: bold; color: #ff6b9d; margin-top: 8px; }
+
+  .modal-options .option { margin: 18px 0; }
+  .modal-options label { display: block; margin-bottom: 10px; font-weight: 600; }
+  .color-options, .size-options { display: flex; gap: 10px; flex-wrap: wrap; }
+  .color-btn, .size-btn {
+    padding: 9px 16px; border: 2px solid #ddd; background: white;
+    border-radius: 30px; cursor: pointer; font-size: 14px;
+  }
+  .color-btn.selected, .size-btn.selected {
+    background: #ff6b9d; color: white; border-color: #ff6b9d;
+  }
+  .add-to-cart-btn {
+    width: 100%; padding: 14px; background: #a8e6cf; color: #155d42;
+    border: none; border-radius: 50px; font-size: 17px; font-weight: bold;
+    margin-top: 10px; cursor: not-allowed; opacity: 0.7;
+  }
+  .add-to-cart-btn.enabled {
+    opacity: 1; cursor: pointer;
+  }
+  .add-to-cart-btn.enabled:hover { background: #88d8b0; }
+</style>

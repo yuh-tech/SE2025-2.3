@@ -1,0 +1,89 @@
+[
+  {
+    "id": 1,
+    "name": "Áo Khoác Phao Dáng Dài",
+    "price": 695000,
+    "image": "/images/ao-khoac-phao-dai/ao-khoac-phao-dang-dai.png",
+    "shortDesc": "Ấm áp – Sang trọng – Chống thấm nước",
+    "description": "Form dáng dài qua gối, lót lông vũ nhân tạo siêu nhẹ, giữ ấm tuyệt đối.",
+    "gallery": [
+      "/images/ao-khoac-phao-dai/mau-da.png",
+      "/images/ao-khoac-phao-dai/mau-do.png",
+      "/images/ao-khoac-phao-dai/mau-nau.png",
+      "/images/ao-khoac-phao-dai/mau-xanh.png"
+    ],
+    "category": "Áo khoác"
+  },
+  {
+    "id": 2,
+    "name": "Áo Len Cổ Lọ",
+    "price": 450000,
+    "image": "/images/ao-len-co-lo/ao-len-co-lo.png",
+    "shortDesc": "Mềm mại – Không xù – Không ngứa",
+    "category": "Áo len"
+  },
+  {
+    "id": 3,
+    "name": "Váy Hoa Nhí",
+    "price": 385000,
+    "image": "/images/vay-hoa-nhi/vay-hoa-nhi.png",
+    "shortDesc": "Nữ tính – Tươi trẻ – Che khuyết điểm tốt",
+    "category": "Váy"
+  },
+  {
+    "id": 4,
+    "name": "Quần Jean Ống Loe",
+    "price": 420000,
+    "image": "/images/quan-jean-ong-loe/quan-jean-ong-loe.png",
+    "shortDesc": "Cá tính – Hack dáng dài",
+    "category": "Quần"
+  },
+  {
+    "id": 5,
+    "name": "Sơ Mi",
+    "price": 320000,
+    "image": "/images/so-mi/so-mi.png",
+    "shortDesc": "Hack tuổi – Phối đồ đỉnh cao",
+    "category": "Áo sơ mi"
+  },
+  {
+    "id": 6,
+    "name": "Chân Váy Tennis",
+    "price": 290000,
+    "image": "/images/chan-vay-tennis/chan-vay-tennis.png",
+    "shortDesc": "Năng động – Dễ thương",
+    "category": "Chân váy"
+  },
+  {
+    "id": 7,
+    "name": "Áo Cardigan",
+    "price": 380000,
+    "image": "/images/ao-cardigan/ao-cardigan.png",
+    "shortDesc": "Tôn da – Layer đẹp",
+    "category": "Áo khoác"
+  },
+  {
+    "id": 8,
+    "name": "Váy Babydoll",
+    "price": 495000,
+    "image": "/images/vay-babydoll/vay-babydoll.png",
+    "shortDesc": "Ngọt ngào – Đi biển, hẹn hò đều xinh",
+    "category": "Váy"
+  },
+  {
+    "id": 9,
+    "name": "Hoodie Zip Nỉ Bông",
+    "price": 435000,
+    "image": "/images/ao-hoodie/ao-hoodie.png",
+    "shortDesc": "Dày dặn – Mặc couple cực chất",
+    "category": "Áo hoodie"
+  },
+  {
+    "id": 10,
+    "name": "Túi Tote Canvas",
+    "price": 189000,
+    "image": "/images/tui-tote/tui-tote.png",
+    "shortDesc": "Đựng laptop 14 inch thoải mái",
+    "category": "Phụ kiện"
+  }
+]

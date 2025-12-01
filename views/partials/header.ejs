@@ -1,34 +1,97 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title><%= typeof title !== "undefined" ? title : "Sunshine Boutique" %></title>
-  <link rel="stylesheet" href="/style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'Sunshine Boutique' %></title>
+  
+  <!-- ĐÚNG 100% với cấu trúc public/style.css -->
+  <link rel="stylesheet" href="/style.css?v=<%= Date.now() %>">
+  
 </head>
-
 <body>
-  <header class="header">
-    <div class="logo">
-      <a href="/home">Sunshine Boutique</a>
-    </div>
 
-    <nav class="nav">
+<header>
+  <div class="container">
+    <a href="/" class="logo">Sunshine Boutique</a>
+
+    <nav>
       <a href="/products">Sản phẩm</a>
-      <a href="/cart" class="cart-link">
-        Giỏ hàng
-        <span class="cart-badge"><%= cart.length %></span>
-      </a>
 
       <% if (currentUser) { %>
-        <span class="user-name">Hi, <%= currentUser.displayName || currentUser.username %></span>
-        <form action="/logout" method="POST" class="logout-form">
-          <button type="submit" class="logout-btn">Đăng xuất</button>
+        <span>Xin chào, <%= currentUser.displayName || currentUser.username %></span>
+        <a href="/cart">Giỏ hàng</a>
+        <form action="/logout" method="POST" style="display:inline;">
+          <button type="submit" style="background:none;border:none;color:inherit;cursor:pointer;padding:0;margin-left:15px;font:inherit;">
+            Đăng xuất
+          </button>
         </form>
       <% } else { %>
-        <a href="/login" class="login-btn">Đăng nhập</a>
+        <a href="/login">Đăng nhập</a>
+        <a href="/signup">Đăng ký</a>
       <% } %>
-    </nav>
-  </header>
 
-  <main class="main-container">
+      <!-- ICON GIỎ HÀNG CHỈ ĐỂ 1 LẦN Ở ĐÂY -->
+      <div style="position:relative; display:inline-block; margin-left:25px; vertical-align:middle;">
+        <a href="/cart">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+        </a>
+        <span id="cartCount" style="...">0</span>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- Script cập nhật badge – chỉ để 1 lần, ngay trước </body> -->
+<script>
+  function updateCartBadge(count) {
+    const badge = document.getElementById('cartCount');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Load số lượng khi vào trang
+  fetch('/cart/count')
+    .then(r => r.json())
+    .then(data => updateCartBadge(data.count || 0))
+    .catch(err => console.log('Lỗi load giỏ hàng:', err));
+
+  // Để các trang khác gọi
+  window.updateCartBadge = updateCartBadge;
+</script>
+
+<!-- Script cập nhật số lượng giỏ hàng – CHẠY TRÊN MỌI TRANG, REALTIME 100% -->
+<script>
+  // Hàm cập nhật badge (sẽ được gọi từ mọi trang)
+  function updateCartBadge(count) {
+    const badge = document.getElementById('cartCount');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Load số lượng ngay khi vào trang (mọi trang đều chạy)
+  fetch('/cart/count')
+    .then(r => r.json())
+    .then(data => updateCartBadge(data.count || 0))
+    .catch(err => console.log('Lỗi load giỏ hàng:', err));
+
+  // Đưa hàm ra ngoài để các trang khác gọi được
+  window.updateCartBadge = updateCartBadge;
+</script>
+
+</body>
+</html>
