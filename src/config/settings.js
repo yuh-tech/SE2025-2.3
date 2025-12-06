@@ -126,11 +126,18 @@ const settings = {
 
   // --- CÁC CẤU HÌNH CÒN LẠI ---
 
-  // Các claims được hỗ trợ
-  claims: Object.keys(claims).reduce((acc, key) => {
-    acc[key] = null;
-    return acc;
-  }, {}),
+  // Claims mapping theo scope (cho ID Token và UserInfo)
+  claims: {
+    openid: ['sub'],
+    profile: [
+      'name', 'family_name', 'given_name', 'middle_name', 'nickname',
+      'preferred_username', 'profile', 'picture', 'website', 'gender',
+      'birthdate', 'zoneinfo', 'locale', 'updated_at',
+    ],
+    email: ['email', 'email_verified'],
+    address: ['address'],
+    phone: ['phone_number', 'phone_number_verified'],
+  },
 
   // Cấu hình cookies
   cookies: {
@@ -207,20 +214,75 @@ const settings = {
     ctx.type = 'html';
     ctx.body = `
       <!DOCTYPE html>
-      <html>
+      <html lang="vi">
       <head>
-        <title>Error</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Lỗi - OAuth Server</title>
         <style>
-          body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-          .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 5px; }
-          h1 { color: #c00; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+          }
+          .error-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 100%;
+          }
+          h1 {
+            color: #e53e3e;
+            margin-bottom: 20px;
+            font-size: 24px;
+          }
+          .error-code {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 15px;
+            font-size: 14px;
+          }
+          .error-message {
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 20px;
+          }
+          .back-button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background 0.3s;
+          }
+          .back-button:hover {
+            background: #5a67d8;
+          }
         </style>
       </head>
       <body>
-        <div class="error">
-          <h1>Error</h1>
-          <p><strong>${error.name}:</strong> ${error.message}</p>
-          ${error.error_description ? `<p>${error.error_description}</p>` : ''}
+        <div class="error-container">
+          <h1>❌ Đã xảy ra lỗi</h1>
+          <div class="error-code">
+            <strong>Mã lỗi:</strong> ${error.name || 'Error'}
+          </div>
+          <div class="error-message">
+            <strong>Chi tiết:</strong><br>
+            ${error.message || 'Đã xảy ra lỗi không xác định'}
+            ${error.error_description ? `<br><br>${error.error_description}` : ''}
+          </div>
+          <a href="/" class="back-button">← Quay lại trang chủ</a>
         </div>
       </body>
       </html>
