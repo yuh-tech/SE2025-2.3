@@ -4,7 +4,7 @@
  * Xử lý đăng xuất người dùng
  */
 
-const express = require('express');
+import express from 'express';
 
 const router = express.Router();
 
@@ -160,5 +160,5 @@ router.post('/session/logout', express.urlencoded({ extended: false }), async (r
   `);
 });
 
-module.exports = router;
+export default router;
 

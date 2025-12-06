@@ -75,7 +75,7 @@ function getClaimsForScopes(requestedScopes) {
   return Array.from(claims);
 }
 
-module.exports = {
+export {
   scopes,
   getAllScopes,
   getScopeDescription,

@@ -134,7 +134,7 @@ function filterClaims(userData, requestedClaims) {
   return result;
 }
 
-module.exports = {
+export {
   claims,
   filterClaims
 };

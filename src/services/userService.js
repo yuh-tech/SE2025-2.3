@@ -6,6 +6,8 @@
  */
 
 // Mock user database - trong thực tế nên lưu trong database
+
+// Phần này sau cũng sẽ lưu vào DB và hash password bằng bcrypt
 const USERS_DB = [
   {
     id: '1',
@@ -275,7 +277,7 @@ class Account {
   }
 }
 
-module.exports = {
+export {
   authenticate,
   findById,
   findByUsername,
