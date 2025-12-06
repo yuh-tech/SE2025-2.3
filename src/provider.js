@@ -46,180 +46,18 @@ async function createProvider(issuer) {
   // Generate JWKS cho signing
   const jwks = await generateJWKS();
   
-  // Cấu hình settings
+  // Cấu hình settings - merge với các cấu hình động
   const configuration = {
     ...settings,
     
-    // Set JWKS
-    jwks,
+    // Các cấu hình động (không thể đặt trong settings.js)
+    jwks,                    // Generated mỗi lần khởi động
+    findAccount: Account.findAccount,  // Function từ userService
+    adapter: createAdapter,  // Factory function từ db.js
+    clients,                 // Load từ config/clients.js
     
-    // Find account function
-    findAccount: Account.findAccount,
-    
-    // Storage adapter
-    adapter: createAdapter,
-    
-    // Client loader - load clients từ config
-    clients,
-    
-    // Extra params
-    extraParams: ['lang', 'ui_locales'],
-    
-    // Token format
-    formats: {
-      AccessToken: 'jwt',
-      ClientCredentials: 'jwt',
-    },
-    
-    // Conformance
-    conformIdTokenClaims: false,
-    
-    // CORS
-    clientBasedCORS: (ctx, origin, client) => {
-      // Allow all origins in development
-      return true;
-    },
-    
-    // Claims configuration
-    claims: {
-      openid: ['sub'],
-      profile: [
-        'name',
-        'family_name',
-        'given_name',
-        'middle_name',
-        'nickname',
-        'preferred_username',
-        'profile',
-        'picture',
-        'website',
-        'gender',
-        'birthdate',
-        'zoneinfo',
-        'locale',
-        'updated_at',
-      ],
-      email: ['email', 'email_verified'],
-      address: ['address'],
-      phone: ['phone_number', 'phone_number_verified'],
-    },
-    
-    // Custom claims injector
-    extraTokenClaims: async (ctx, token) => {
-      if (token.kind === 'AccessToken') {
-        // Có thể thêm custom claims vào access token
-        return {
-          // aud: 'my-api',
-        };
-      }
-      return {};
-    },
-    
-    // Issue refresh token khi có offline_access scope
-    issueRefreshToken: async (ctx, client, code) => {
-      if (!client.grantTypeAllowed('refresh_token')) {
-        return false;
-      }
-      
-      return code && code.scopes.has('offline_access');
-    },
-    
-    // Rotate refresh token mỗi lần sử dụng (security best practice)
-    rotateRefreshToken: (ctx) => {
-      const { RefreshToken: refreshToken, Client: client } = ctx.oidc.entities;
-      
-      // Rotate refresh token for public clients
-      if (client.tokenEndpointAuthMethod === 'none') {
-        return true;
-      }
-      
-      // Rotate after 7 days
-      if (refreshToken.totalLifetime() > 7 * 24 * 60 * 60) {
-        return true;
-      }
-      
-      return false;
-    },
-    
-    // Render error page
-    renderError: async (ctx, out, error) => {
-      ctx.type = 'html';
-      ctx.body = `
-        <!DOCTYPE html>
-        <html lang="vi">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Lỗi - OAuth Server</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              padding: 20px;
-            }
-            .error-container {
-              background: white;
-              padding: 40px;
-              border-radius: 10px;
-              box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-              max-width: 500px;
-              width: 100%;
-            }
-            h1 {
-              color: #e53e3e;
-              margin-bottom: 20px;
-              font-size: 24px;
-            }
-            .error-code {
-              background: #fed7d7;
-              color: #c53030;
-              padding: 10px 15px;
-              border-radius: 5px;
-              font-family: 'Courier New', monospace;
-              margin-bottom: 15px;
-              font-size: 14px;
-            }
-            .error-message {
-              color: #4a5568;
-              line-height: 1.6;
-              margin-bottom: 20px;
-            }
-            .back-button {
-              display: inline-block;
-              background: #667eea;
-              color: white;
-              padding: 12px 24px;
-              border-radius: 5px;
-              text-decoration: none;
-              transition: background 0.3s;
-            }
-            .back-button:hover {
-              background: #5a67d8;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="error-container">
-            <h1>❌ Đã xảy ra lỗi</h1>
-            <div class="error-code">
-              <strong>Mã lỗi:</strong> ${error.name || 'Error'}
-            </div>
-            <div class="error-message">
-              <strong>Chi tiết:</strong><br>
-              ${error.message || 'Đã xảy ra lỗi không xác định'}
-              ${error.error_description ? `<br><br>${error.error_description}` : ''}
-            </div>
-            <a href="/" class="back-button">← Quay lại trang chủ</a>
-          </div>
-        </body>
-        </html>
-      `;
-    },
+    // Override một số cấu hình nếu cần
+    // (Các cấu hình khác đã được định nghĩa trong settings.js)
   };
 
   // Tạo provider instance
