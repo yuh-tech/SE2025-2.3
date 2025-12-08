@@ -1,0 +1,46 @@
+<%- include('../partials/header') %>
+
+<div class="admin-container">
+  <h1 class="admin-title">Quản lý đơn hàng</h1>
+
+  <table class="order-table">
+    <tr>
+      <th>ID</th>
+      <th>Khách hàng</th>
+      <th>Tổng tiền</th>
+      <th>Trạng thái</th>
+      <th>Cập nhật</th>
+    </tr>
+
+    <% orders.forEach(o => { %>
+      <tr>
+        <td><%= o.id %></td>
+        <td><%= o.user %></td>
+        <td><%= o.total.toLocaleString('vi-VN') %> ₫</td>
+        <td><%= o.status %></td>
+        <td>
+          <form method="POST" action="/admin/orders/update/<%= o.id %>">
+            <select name="status">
+              <option value="processing">processing</option>
+              <option value="packing">packing</option>
+              <option value="shipping">shipping</option>
+              <option value="delivered">delivered</option>
+            </select>
+            <button>OK</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </table>
+</div>
+
+<style>
+.order-table {
+  width:100%; border-collapse:collapse; margin-top:20px;
+}
+.order-table th, .order-table td {
+  border:1px solid #ddd; padding:12px; text-align:center;
+}
+</style>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+
+<% if (user) { %>
+  <p>Chào mừng quay lại, <strong><%= user %></strong>!</p>
+  <a href="/settings" class="btn">Vào cài đặt</a>
+<% } else { %>
+  <p>Chào mừng đến với <strong>Client App</strong>.</p>
+  <a href="/login" class="btn">Đăng nhập</a>
+  <a href="/signup" class="btn">Đăng ký</a>
+<% } %>
+
+<%- include('partials/footer') %>
