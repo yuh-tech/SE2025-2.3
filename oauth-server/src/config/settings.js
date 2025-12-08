@@ -1,12 +1,4 @@
-/**
- * Cấu hình chính cho OIDC Provider
- * 
- * File này chứa tất cả các cấu hình cho oidc-provider
- * Tham khảo: https://github.com/panva/node-oidc-provider/blob/main/docs/README.md
- */
-
-import { getAllScopes } from './scopes.js';
-import { claims } from './claims.js';
+import { scopes, getAllScopes } from './scopes.js';
 
 const TTL = {
   AccessToken: 60 * 60,
@@ -20,93 +12,42 @@ const TTL = {
 };
 
 const settings = {
-  // Các tính năng được bật
-  features: {
-    // Device Flow - cho thiết bị IoT
-    deviceFlow: { enabled: false },
-    
-    // Client Credentials Grant
-    clientCredentials: { enabled: true },
-    
-    // Resource Indicators (RFC 8707)
-    resourceIndicators: { 
-      enabled: true,
-      defaultResource: (ctx) => {
-        return undefined;
-      },
-      getResourceServerInfo: async (ctx, resourceIndicator) => {
-        return {
-          scope: 'api:read api:write',
-          audience: resourceIndicator,
-        };
-      },
-    },
-    
-    // Revocation endpoint
-    revocation: { enabled: true },
-    introspection: { enabled: true },
-    
-    // PKCE (Proof Key for Code Exchange) - bắt buộc cho public clients
-    pkce: {
-      required: (ctx, client) => {
-        // Bắt buộc PKCE cho public clients (SPA, Mobile)
-        return client.tokenEndpointAuthMethod === 'none';
-      },
-    },
-    
-    // Registration endpoint - Dynamic Client Registration
-    registration: { 
-      enabled: false, // Tắt trong demo, bật trong production nếu cần
-    },
-    
-    // Registration Management
-    registrationManagement: { enabled: false },
-    
-    // User info endpoint
-    userinfo: { enabled: true },
-    
-    // JWT Access Tokens
-    jwtAccessTokens: { enabled: false },
-    
-    // Encrypted ID Tokens
-    encryption: { enabled: false },
-    
-    // Session management
-    sessionManagement: { enabled: true },
-    
-    // Back-channel logout
-    backchannelLogout: { enabled: false },
-    
-    // Front-channel logout  
-    frontchannelLogout: { enabled: false },
-    
-    // Pushed Authorization Requests (PAR)
-    pushedAuthorizationRequests: { enabled: false },
-    
-    // JWT Response Modes
-    jwtResponseModes: { enabled: false },
-    
-    // Request Objects
-    request: { enabled: false },
-    requestUri: { enabled: false },
-    
-    // Rich Authorization Requests
-    richAuthorizationRequests: { enabled: false },
-    
-    // Mutual TLS
-    mTLS: { enabled: false },
-    
-    // DPoP (Demonstrating Proof-of-Possession)
-    dPoP: { enabled: false },
+
+  /* ------------------------------- PKCE ------------------------------- */
+  pkce: {
+    methods: ['S256'],
+    required: () => true,
   },
 
-  // Các claims được hỗ trợ
-  claims: Object.keys(claims).reduce((acc, key) => {
-    acc[key] = null;
+  /* ------------------------------ FEATURES ---------------------------- */
+  features: {
+    revocation: { enabled: true },
+    introspection: { enabled: true },
+
+    userinfo: { enabled: true },
+
+    registration: { enabled: false },
+
+    clientCredentials: { enabled: true },
+
+    pushedAuthorizationRequests: { enabled: false },
+
+    encryption: { enabled: false },
+  },
+
+  /* ---------------------------- CLAIMS ---------------------------- */
+  // Map từ scope -> các claims thuộc scope đó
+  claims: Object.entries(scopes).reduce((acc, [scope, def]) => {
+    if (def.claims && def.claims.length) {
+      acc[scope] = def.claims.reduce((claimsObj, claimName) => {
+        claimsObj[claimName] = null;
+        return claimsObj;
+      }, {});
+    }
     return acc;
   }, {}),
 
-  // Cấu hình cookies
+  /* ---------------------------- COOKIES ---------------------------- */
   cookies: {
     keys: process.env.COOKIE_KEYS?.split(',') || ['secret-key-1', 'secret-key-2'],
     long: {
@@ -134,10 +75,6 @@ const settings = {
   ],
 
   scopes: getAllScopes(),
-
-  // Danh sách tất cả claims được hỗ trợ (cho discovery document)
-  // Sử dụng claims từ import './claims.js' ở đầu file
-  claimsSupported: Object.keys(claims),
 
   subjectTypes: ['public'],
 
@@ -174,39 +111,16 @@ const settings = {
     `;
   },
 
-  // JWKS configuration
-  jwks: undefined, // Will be set in provider.js
-
-  // Discovery metadata
-  discovery: {
-    service_documentation: 'https://github.com/panva/node-oidc-provider',
-    ui_locales_supported: ['en-US', 'vi-VN'],
-    claim_types_supported: ['normal'],
-  },
-
-  // Extra token claims
-  extraTokenClaims: async (ctx, token) => {
-    // Có thể thêm custom claims vào token ở đây
-    return {};
-  },
-
-  // Find account by ID
-  findAccount: undefined, // Will be set in provider.js
-
-  // Adapter (storage)
-  adapter: undefined, // Will be set in provider.js
-
-  // Formats
   formats: {
-    AccessToken: 'jwt', // hoặc 'opaque'
+    AccessToken: 'jwt',
     ClientCredentials: 'jwt',
   },
 
-  // Conformance
-  conformIdTokenClaims: false,
+  jwks: undefined,
+  findAccount: undefined,
+  adapter: undefined,
 
-  // PKCE methods
-  pkceMethods: ['S256', 'plain'],
+  extraTokenClaims: async () => ({}),
 
   issueRefreshToken: async (ctx, client, code) => {
     if (!code) return false;
@@ -228,4 +142,3 @@ const settings = {
 };
 
 export default settings;
-
