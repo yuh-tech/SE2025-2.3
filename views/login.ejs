@@ -1,15 +1,20 @@
 <%- include('partials/header') %>
+<%
+  const _success = typeof success !== 'undefined' ? success : null;
+  const _error = typeof error !== 'undefined' ? error : null;
+%>
+
 
 <section class="login-section">
   <div class="login-container">
     <h2>Đăng nhập tài khoản</h2>
 
-    <% if (error) { %>
-      <div class="alert error"><%= error %></div>
+    <% if (_error) { %>
+      <div class="alert error"><%= _error %></div>
     <% } %>
 
-    <% if (success) { %>
-      <div class="alert success"><%= success %></div>
+    <% if (_success) { %>
+      <div class="alert success"><%= _success %></div>
     <% } %>
 
     <form method="POST" action="/login" class="login-form">

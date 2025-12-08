@@ -2,28 +2,25 @@
 
 <div class="container product-detail-page">
   <div class="breadcrumb">
-    <a href="/">Trang chủ</a> → 
-    <a href="/products">Sản phẩm</a> → 
+    <a href="/">Trang chủ</a> → <a href="/products">Sản phẩm</a> →
     <span><%= product.name %></span>
   </div>
 
   <div class="product-detail-grid">
-
     <!-- Ảnh bên trái (nhỏ gọn) -->
     <div class="product-gallery">
       <div class="main-image">
-        <img src="<%= product.image %>" alt="<%= product.name %>" id="mainImg">
+        <img src="<%= product.image %>" alt="<%= product.name %>" id="mainImg" />
       </div>
       <div class="thumbnail-list">
-        <img src="<%= product.image %>" class="thumb active" onclick="changeImage(this)">
-        <% if (product.gallery && product.gallery.length > 0) { %>
-          <% product.gallery.forEach(img => { %>
-            <img src="<%= img %>" class="thumb" onclick="changeImage(this)">
-          <% }) %>
-        <% } else { %>
-          <img src="<%= product.image %>" class="thumb" onclick="changeImage(this)">
-          <img src="<%= product.image %>" class="thumb" onclick="changeImage(this)">
-          <img src="<%= product.image %>" class="thumb" onclick="changeImage(this)">
+        <img src="<%= product.image %>" class="thumb active" onclick="changeImage(this)" />
+
+        <% if (product.gallery && product.gallery.length > 0) { %> <% product.gallery.forEach(img => { %>
+        <img src="<%= img %>" class="thumb" onclick="changeImage(this)" />
+        <% }) %> <% } else { %>
+        <img src="<%= product.image %>" class="thumb" onclick="changeImage(this)" />
+        <img src="<%= product.image %>" class="thumb" onclick="changeImage(this)" />
+        <img src="<%= product.image %>" class="thumb" onclick="changeImage(this)" />
         <% } %>
       </div>
     </div>
@@ -33,8 +30,8 @@
       <h1><%= product.name %></h1>
 
       <div class="rating">
-        <% for(let i = 1; i <= 5; i++) { %>
-          <i class="fas fa-star <%= i <= (product.rating || 4.8) ? 'filled' : '' %>"></i>
+        <% for (let i = 1; i <= 5; i++) { %>
+        <i class="fas fa-star <%= i <= (product.rating || 4.8) ? 'filled' : '' %>"></i>
         <% } %>
         <span class="review-count">(128 đánh giá)</span>
       </div>
@@ -50,7 +47,7 @@
         <label>Màu sắc:</label>
         <div class="color-options">
           <% (product.colors || ['Trắng kem', 'Xanh mint', 'Hồng phấn', 'Be', 'Đen']).forEach(color => { %>
-            <button type="button" class="color-btn" data-color="<%= color %>"><%= color %></button>
+          <button type="button" class="color-btn" data-color="<%= color %>"><%= color %></button>
           <% }) %>
         </div>
       </div>
@@ -60,29 +57,25 @@
         <label>Kích cỡ:</label>
         <div class="size-options">
           <% (product.sizes || ['S', 'M', 'L', 'XL']).forEach(size => { %>
-            <button type="button" class="size-btn" data-size="<%= size %>"><%= size %></button>
+          <button type="button" class="size-btn" data-size="<%= size %>"><%= size %></button>
           <% }) %>
         </div>
       </div>
 
-      <p class="select-warning" style="color:#e74c3c; font-size:14px; margin:12px 0; display:none;">
+      <p class="select-warning" style="color: #e74c3c; font-size: 14px; margin: 12px 0; display: none">
         Vui lòng chọn màu sắc và kích cỡ trước khi thêm vào giỏ!
       </p>
 
       <!-- Nút thêm giỏ -->
       <div class="actions">
         <% if (currentUser) { %>
-          <form id="addToCartForm" action="/cart/add/<%= product.id %>" method="POST">
-            <input type="hidden" name="color" id="selectedColor">
-            <input type="hidden" name="size" id="selectedSize">
-            <button type="submit" id="addToCartBtn" class="add-to-cart-big" disabled>
-              Thêm vào giỏ hàng
-            </button>
-          </form>
+        <form id="addToCartForm" action="/cart/add/<%= product.id %>" method="POST">
+          <input type="hidden" name="color" id="selectedColor" />
+          <input type="hidden" name="size" id="selectedSize" />
+          <button type="submit" id="addToCartBtn" class="add-to-cart-big" disabled>Thêm vào giỏ hàng</button>
+        </form>
         <% } else { %>
-          <button id="addToCartBtn" class="add-to-cart-big login-required" disabled>
-            Thêm vào giỏ hàng
-          </button>
+        <button id="addToCartBtn" class="add-to-cart-big login-required" disabled>Thêm vào giỏ hàng</button>
         <% } %>
 
         <a href="/products" class="back-btn">Tiếp tục mua sắm</a>
@@ -91,13 +84,9 @@
       <!-- Mô tả chi tiết -->
       <div class="details">
         <h3>Chi tiết sản phẩm</h3>
-        <p><%= product.description || 'Chất liệu cao cấp, form dáng chuẩn, phù hợp mọi phong cách. Đường may chắc chắn, giặt máy thoải mái không xù lông.' %></p>
-        <ul>
-          <li>Chất liệu: <%= product.material || 'Cotton 100% cao cấp / Polyester chống nhăn' %></li>
-          <li>Form dáng: Regular fit</li>
-          <li>Màu sắc: Có nhiều màu tùy lô</li>
-          <li>Giặt máy thoải mái, không xù lông</li>
-        </ul>
+        <p>
+          <%= product.description %>
+        </p>
       </div>
     </div>
   </div>
@@ -105,17 +94,33 @@
   <!-- Đánh giá -->
   <div class="reviews-section">
     <h2>Đánh giá từ khách hàng</h2>
-    <div class="review"><strong>Lan Anh</strong> ★★★★★ <p>Áo đẹp lắm ạ, mặc thoải mái, shop gói cẩn thận</p></div>
-    <div class="review"><strong>Minh Thư</strong> ★★★★☆ <p>Hàng y hình, giao nhanh, sẽ ủng hộ lâu dài</p></div>
+    <div class="review">
+      <strong>Lan Anh</strong> ★★★★★
+      <p>Áo đẹp lắm ạ, mặc thoải mái, shop gói cẩn thận</p>
+    </div>
+    <div class="review">
+      <strong>Minh Thư</strong> ★★★★☆
+      <p>Hàng y hình, giao nhanh, sẽ ủng hộ lâu dài</p>
+    </div>
   </div>
 </div>
 
 <%- include('partials/footer') %>
-
 <style>
-  .product-detail-page { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
-  .breadcrumb { margin-bottom: 25px; color: #999; font-size: 14px; }
-  .breadcrumb a { color: #ff6b9d; text-decoration: none; }
+  .product-detail-page {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  .breadcrumb {
+    margin-bottom: 25px;
+    color: #999;
+    font-size: 14px;
+  }
+  .breadcrumb a {
+    color: #ff6b9d;
+    text-decoration: none;
+  }
 
   .product-detail-grid {
     display: grid;
@@ -128,7 +133,7 @@
   .main-image {
     border-radius: 18px;
     overflow: hidden;
-    box-shadow: 0 12px 35px rgba(0,0,0,0.12);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
     margin-bottom: 18px;
   }
   .main-image img {
@@ -138,64 +143,153 @@
     object-position: center top;
     transition: transform 0.4s ease;
   }
-  .main-image img:hover { transform: scale(1.05); }
+  .main-image img:hover {
+    transform: scale(1.05);
+  }
 
   .thumbnail-list {
-    display: flex; gap: 12px; flex-wrap: wrap;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
   }
   .thumbnail-list img {
-    width: 88px; height: 88px; object-fit: cover; border-radius: 12px;
-    cursor: pointer; border: 3px solid #eee; transition: 0.3s;
+    width: 88px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 12px;
+    cursor: pointer;
+    border: 3px solid #eee;
+    transition: 0.3s;
   }
-  .thumbnail-list img.active, .thumbnail-list img:hover {
-    border-color: #ff6b9d; transform: scale(1.1);
+  .thumbnail-list img.active,
+  .thumbnail-list img:hover {
+    border-color: #ff6b9d;
+    transform: scale(1.1);
   }
 
   /* Thông tin bên phải */
-  .product-info-right h1 { font-size: 29px; margin: 0 0 12px; color: #333; }
-  .price-big { font-size: 34px; font-weight: bold; color: #ff6b9d; margin: 18px 0; }
-  .short-desc { color: #666; line-height: 1.7; margin-bottom: 22px; font-size: 15px; }
-
-  .option-group label { display: block; margin: 20px 0 10px; font-weight: 600; font-size: 16px; }
-  .color-options, .size-options { display: flex; gap: 12px; flex-wrap: wrap; }
-  .color-btn, .size-btn {
-    padding: 10px 20px; border: 2px solid #ddd; background: white;
-    border-radius: 30px; cursor: pointer; transition: 0.3s; font-size: 15px;
+  .product-info-right h1 {
+    font-size: 29px;
+    margin: 0 0 12px;
+    color: #333;
   }
-  .color-btn.selected, .size-btn.selected {
-    background: #ff6b9d; color: white; border-color: #ff6b9d;
+  .price-big {
+    font-size: 34px;
+    font-weight: bold;
+    color: #ff6b9d;
+    margin: 18px 0;
+  }
+  .short-desc {
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 22px;
+    font-size: 15px;
   }
 
-  .actions { margin: 35px 0; display: flex; gap: 15px; flex-wrap: wrap; }
+  .option-group label {
+    display: block;
+    margin: 20px 0 10px;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .color-options,
+  .size-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .color-btn,
+  .size-btn {
+    padding: 10px 20px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 15px;
+  }
+  .color-btn.selected,
+  .size-btn.selected {
+    background: #ff6b9d;
+    color: white;
+    border-color: #ff6b9d;
+  }
+
+  .actions {
+    margin: 35px 0;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
   .add-to-cart-big {
-    flex: 1; min-width: 260px; padding: 16px; background: #a8e6cf; color: #155d42;
-    border: none; border-radius: 50px; font-size: 18px; font-weight: bold;
-    cursor: not-allowed; opacity: 0.6;
+    flex: 1;
+    min-width: 260px;
+    padding: 16px;
+    background: #a8e6cf;
+    color: #155d42;
+    border: none;
+    border-radius: 50px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: not-allowed;
+    opacity: 0.6;
   }
   .add-to-cart-big.enabled {
-    opacity: 1; cursor: pointer;
+    opacity: 1;
+    cursor: pointer;
   }
-  .add-to-cart-big.enabled:hover { background: #88d8b0; transform: scale(1.02); }
+  .add-to-cart-big.enabled:hover {
+    background: #88d8b0;
+    transform: scale(1.02);
+  }
 
   .back-btn {
-    padding: 16px 34px; background: white; color: #ff6b9d;
-    border: 2px solid #ff6b9d; border-radius: 50px; text-decoration: none; font-weight: 600;
+    padding: 16px 34px;
+    background: white;
+    color: #ff6b9d;
+    border: 2px solid #ff6b9d;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
   }
 
-  .details { background: #f9f9f9; padding: 28px; border-radius: 16px; margin-top: 30px; }
-  .details h3 { color: #ff6b9d; margin-bottom: 15px; }
-  .reviews-section { margin-top: 80px; text-align: center; }
-  .review { background: white; padding: 20px; border-radius: 12px; margin: 15px auto; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: left; }
+  .details {
+    background: #f9f9f9;
+    padding: 28px;
+    border-radius: 16px;
+    margin-top: 30px;
+  }
+  .details h3 {
+    color: #ff6b9d;
+    margin-bottom: 15px;
+  }
+  .reviews-section {
+    margin-top: 80px;
+    text-align: center;
+  }
+  .review {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 15px auto;
+    max-width: 600px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    text-align: left;
+  }
 
   @media (max-width: 992px) {
-    .product-detail-grid { grid-template-columns: 1fr; }
-    .main-image img { height: 420px; }
+    .product-detail-grid {
+      grid-template-columns: 1fr;
+    }
+    .main-image img {
+      height: 420px;
+    }
   }
 </style>
 <script>
   function changeImage(thumb) {
     document.getElementById('mainImg').src = thumb.src;
-    document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.thumb').forEach((t) => t.classList.remove('active'));
     thumb.classList.add('active');
   }
 
@@ -209,9 +303,9 @@
   let selectedColor = '';
   let selectedSize = '';
 
-  colorBtns.forEach(btn => {
-    btn.addEventListener('click', function() {
-      colorBtns.forEach(b => b.classList.remove('selected'));
+  colorBtns.forEach((btn) => {
+    btn.addEventListener('click', function () {
+      colorBtns.forEach((b) => b.classList.remove('selected'));
       this.classList.add('selected');
       selectedColor = this.dataset.color;
       if (colorInput) colorInput.value = selectedColor;
@@ -219,9 +313,9 @@
     });
   });
 
-  sizeBtns.forEach(btn => {
-    btn.addEventListener('click', function() {
-      sizeBtns.forEach(b => b.classList.remove('selected'));
+  sizeBtns.forEach((btn) => {
+    btn.addEventListener('click', function () {
+      sizeBtns.forEach((b) => b.classList.remove('selected'));
       this.classList.add('selected');
       selectedSize = this.dataset.size;
       if (sizeInput) sizeInput.value = selectedSize;
@@ -241,7 +335,7 @@
   }
 
   // === CHỈNH SỬA CHÍNH TẠI ĐÂY: DÙNG AJAX + CẬP NHẬT REALTIME ===
-  document.getElementById('addToCartForm')?.addEventListener('submit', function(e) {
+  document.getElementById('addToCartForm')?.addEventListener('submit', function (e) {
     e.preventDefault(); // Ngăn reload trang
 
     if (!selectedColor || !selectedSize) {
@@ -254,35 +348,35 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ color: selectedColor, size: selectedSize })
     })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        // HIỆN TOAST ĐẸP
-        const toast = document.createElement('div');
-        toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ!`;
-        toast.style.cssText = `
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          // HIỆN TOAST ĐẸP
+          const toast = document.createElement('div');
+          toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ!`;
+          toast.style.cssText = `
           position:fixed;top:20px;left:50%;transform:translateX(-50%);
           background:#a8e6cf;color:#155d42;padding:16px 36px;border-radius:50px;
           z-index:9999;font-weight:bold;box-shadow:0 10px 30px rgba(0,0,0,0.2);
           animation: toast 3.5s forwards;
         `;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3500);
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 3500);
 
-        // === CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG REALTIME ===
-        if (window.updateCartBadge && typeof data.cartCount === 'number') {
-          window.updateCartBadge(data.cartCount);
+          // === CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG REALTIME ===
+          if (window.updateCartBadge && typeof data.cartCount === 'number') {
+            window.updateCartBadge(data.cartCount);
+          }
         }
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      alert('Có lỗi xảy ra, vui lòng thử lại!');
-    });
+      })
+      .catch((err) => {
+        console.error(err);
+        alert('Có lỗi xảy ra, vui lòng thử lại!');
+      });
   });
 
   // Nếu chưa đăng nhập → chuyển hướng login
-  document.querySelectorAll('.login-required').forEach(btn => {
+  document.querySelectorAll('.login-required').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!selectedColor || !selectedSize) {
         warning.style.display = 'block';

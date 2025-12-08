@@ -1,0 +1,95 @@
+<%- include('../partials/header') %>
+
+<div class="admin-container">
+  <h1 class="admin-title">Admin Dashboard</h1>
+
+  <!-- ====== THỐNG KÊ ====== -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <h3>Sản phẩm</h3>
+      <p><%= productsCount %></p>
+    </div>
+
+    <div class="stat-card">
+      <h3>Đơn hàng</h3>
+      <p><%= ordersCount %></p>
+    </div>
+
+    <div class="stat-card">
+      <h3>Yêu cầu trả hàng</h3>
+      <p><%= returnsCount %></p>
+    </div>
+  </div>
+
+  <!-- ====== ĐIỀU HƯỚNG ====== -->
+  <div class="admin-links">
+    <a href="/admin/products">Quản lý sản phẩm</a>
+    <a href="/admin/orders">Quản lý đơn hàng</a>
+    <a href="/admin/returns">Quản lý trả hàng</a>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
+
+<style>
+  .admin-container {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 0 20px;
+    font-family: Arial, sans-serif;
+  }
+
+  .admin-title {
+    text-align: center;
+    font-size: 30px;
+    margin-bottom: 30px;
+    color: #333;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  .stat-card {
+    background: #f7f7f7;
+    padding: 25px;
+    text-align: center;
+    border-radius: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .stat-card h3 {
+    margin-bottom: 10px;
+    font-size: 20px;
+    color: #333;
+  }
+
+  .stat-card p {
+    font-size: 26px;
+    font-weight: bold;
+    color: #27ae60;
+  }
+
+  .admin-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .admin-links a {
+    padding: 12px 20px;
+    background: #a8e6cf;
+    color: #155d42;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: 0.3s;
+  }
+
+  .admin-links a:hover {
+    background: #88d8b0;
+  }
+</style>

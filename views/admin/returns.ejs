@@ -1,0 +1,50 @@
+<%- include('../partials/header') %>
+
+<div class="admin-container">
+  <h1 class="admin-title">Yêu cầu trả hàng</h1>
+
+  <table class="return-table">
+    <tr>
+      <th>ID</th>
+      <th>Order ID</th>
+      <th>User</th>
+      <th>Trạng thái</th>
+      <th>Duyệt</th>
+    </tr>
+
+    <% returns.forEach(r => { %>
+      <tr>
+        <td><%= r.id %></td>
+        <td><%= r.orderId %></td>
+        <td><%= r.user %></td>
+        <td><%= r.status %></td>
+
+        <td>
+          <% if (r.status === 'pending') { %>
+            <form method="POST" action="/admin/returns/approve/<%= r.id %>">
+              <button class="approve-btn">Duyệt</button>
+            </form>
+          <% } else { %>
+            ✔ Đã duyệt
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </table>
+</div>
+
+<style>
+.return-table {
+  width:100%; border-collapse:collapse;
+}
+.return-table th, .return-table td {
+  border:1px solid #ddd; padding:10px; text-align:center;
+}
+.approve-btn {
+  background:#88d8b0; border:none; padding:6px 12px;
+  border-radius:6px; cursor:pointer; font-weight:bold;
+}
+.approve-btn:hover { background:#66c49c; }
+</style>
+
+<%- include('../partials/footer') %>

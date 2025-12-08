@@ -20,6 +20,8 @@
     "price": 450000,
     "image": "/images/ao-len-co-lo/ao-len-co-lo.png",
     "shortDesc": "Mềm mại – Không xù – Không ngứa",
+    "description": "Áo len cổ lọ dệt kim mềm mịn, giữ ấm tốt nhưng không gây bí. Chất len cao cấp hạn chế xù lông, hoàn toàn không gây ngứa khi mặc cả ngày. Form ôm nhẹ giúp tôn dáng và dễ phối với mọi loại áo khoác mùa đông.",
+    "gallery": [],
     "category": "Áo len"
   },
   {
@@ -28,6 +30,8 @@
     "price": 385000,
     "image": "/images/vay-hoa-nhi/vay-hoa-nhi.png",
     "shortDesc": "Nữ tính – Tươi trẻ – Che khuyết điểm tốt",
+    "description": "Váy hoa nhí dáng xòe nhẹ nhàng, chất vải mềm mát tạo độ rủ tự nhiên. Họa tiết nhỏ giúp tôn da và che khuyết điểm vòng hai cực tốt. Phù hợp mặc đi học, đi chơi hoặc dạo phố cuối tuần.",
+    "gallery": [],
     "category": "Váy"
   },
   {
@@ -36,6 +40,8 @@
     "price": 420000,
     "image": "/images/quan-jean-ong-loe/quan-jean-ong-loe.png",
     "shortDesc": "Cá tính – Hack dáng dài",
+    "description": "Quần jean ống loe form ôm nhẹ từ hông xuống đầu gối rồi loe tinh tế giúp chân trông dài và thon hơn. Chất jean co giãn thoải mái, giữ form tốt, phù hợp cả đi làm và đi chơi.",
+    "gallery": [],
     "category": "Quần"
   },
   {
@@ -44,6 +50,8 @@
     "price": 320000,
     "image": "/images/so-mi/so-mi.png",
     "shortDesc": "Hack tuổi – Phối đồ đỉnh cao",
+    "description": "Áo sơ mi chất liệu cotton thoáng mát, đứng form vừa phải giúp bạn trông trẻ trung và thanh lịch hơn. Dễ phối với chân váy, quần jean hoặc quần tây, phù hợp nhiều phong cách từ đi làm đến đi chơi.",
+    "gallery": [],
     "category": "Áo sơ mi"
   },
   {
@@ -52,6 +60,8 @@
     "price": 290000,
     "image": "/images/chan-vay-tennis/chan-vay-tennis.png",
     "shortDesc": "Năng động – Dễ thương",
+    "description": "Chân váy tennis dáng xếp ly trẻ trung, cạp váy ôm vừa phải tạo hiệu ứng tăng chiều cao cực xịn. Chất vải dày dặn, không nhăn và không bị bay khi di chuyển. Rất dễ thương khi phối cùng áo thun hoặc cardigan.",
+    "gallery": [],
     "category": "Chân váy"
   },
   {
@@ -60,6 +70,8 @@
     "price": 380000,
     "image": "/images/ao-cardigan/ao-cardigan.png",
     "shortDesc": "Tôn da – Layer đẹp",
+    "description": "Cardigan dệt kim mềm nhẹ, bề mặt mịn và lên màu rất tôn da. Dáng rộng vừa phải, dễ layer cùng áo thun hoặc sơ mi. Phù hợp cho thời tiết se lạnh, đi học, đi làm hay đi cafe đều đẹp.",
+    "gallery": [],
     "category": "Áo khoác"
   },
   {
@@ -68,6 +80,8 @@
     "price": 495000,
     "image": "/images/vay-babydoll/vay-babydoll.png",
     "shortDesc": "Ngọt ngào – Đi biển, hẹn hò đều xinh",
+    "description": "Váy babydoll form rộng che bụng cực đỉnh, chất liệu nhẹ và thoáng giúp tạo độ bồng tự nhiên. Mặc lên trông rất trẻ trung, phù hợp khi đi biển, picnic hoặc hẹn hò cuối tuần.",
+    "gallery": [],
     "category": "Váy"
   },
   {
@@ -76,6 +90,8 @@
     "price": 435000,
     "image": "/images/ao-hoodie/ao-hoodie.png",
     "shortDesc": "Dày dặn – Mặc couple cực chất",
+    "description": "Áo hoodie nỉ bông mặt trong mềm mịn, giữ ấm tốt, lên form rộng trẻ trung. Dây kéo mượt, mũ to giúp gương mặt trông nhỏ hơn. Rất phù hợp để mặc đôi hoặc phối phong cách streetwear.",
+    "gallery": [],
     "category": "Áo hoodie"
   },
   {
@@ -84,6 +100,8 @@
     "price": 189000,
     "image": "/images/tui-tote/tui-tote.png",
     "shortDesc": "Đựng laptop 14 inch thoải mái",
+    "description": "Túi tote canvas dày dặn, chống sờn và chịu lực tốt. Kích thước rộng rãi có thể đựng laptop 14 inch, sách vở, đồ cá nhân. Phù hợp đi học, đi làm hoặc đi chơi hằng ngày.",
+    "gallery": [],
     "category": "Phụ kiện"
   }
 ]

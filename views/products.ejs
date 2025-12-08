@@ -1,4 +1,12 @@
 <%- include('partials/header') %>
+<% 
+  const _filters = typeof filters !== 'undefined' ? filters : {};
+  const search = _filters.search || '';
+  const category = _filters.category || 'all';
+  const sort = _filters.sort || '';
+  const min = _filters.min || '';
+  const max = _filters.max || '';
+%>
 
 <section class="products-page">
   <h1>Tất cả sản phẩm</h1>
@@ -11,26 +19,26 @@
         <h3>Bộ lọc</h3>
         <form method="GET" action="/products" class="filter-form">
 
-          <input type="text" name="search" placeholder="Tìm kiếm..." value="<%= filters.search || '' %>">
+          <input type="text" name="search" placeholder="Tìm kiếm..." value="<%= search || '' %>">
 
           <select name="category">
             <option value="all">Tất cả danh mục</option>
             <% categories.forEach(c => { %>
               <% if (c !== 'all') { %>
-                <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c %></option>
+                <option value="<%= c %>" <%= category === c ? 'selected' : '' %>><%= c %></option>
               <% } %>
             <% }) %>
           </select>
 
           <div class="price-range">
-            <input type="number" name="min" placeholder="Giá từ" value="<%= filters.min || '' %>">
-            <input type="number" name="max" placeholder="Giá đến" value="<%= filters.max || '' %>">
+            <input type="number" name="min" placeholder="Giá từ" value="<%= min || '' %>">
+            <input type="number" name="max" placeholder="Giá đến" value="<%= max || '' %>">
           </div>
 
           <select name="sort">
             <option value="">Sắp xếp</option>
-            <option value="asc" <%= filters.sort === 'asc' ? 'selected' : '' %>>Giá tăng dần</option>
-            <option value="desc" <%= filters.sort === 'desc' ? 'selected' : '' %>>Giá giảm dần</option>
+            <option value="asc" <%= sort === 'asc' ? 'selected' : '' %>>Giá tăng dần</option>
+            <option value="desc" <%= sort === 'desc' ? 'selected' : '' %>>Giá giảm dần</option>
           </select>
 
           <button type="submit" class="apply-btn">Áp dụng</button>

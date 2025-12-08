@@ -1,0 +1,178 @@
+<%- include('../partials/header') %>
+
+<div class="admin-container">
+  <h1>Quản lý sản phẩm</h1>
+
+  <!-- FORM THÊM SẢN PHẨM -->
+  <form action="/admin/products/add" method="POST" class="product-form">
+    <div class="row">
+      <label>Tên sản phẩm</label>
+      <input type="text" name="name" required />
+    </div>
+
+    <div class="row">
+      <label>Giá</label>
+      <input type="number" name="price" required />
+    </div>
+
+    <div class="row">
+      <label>Ảnh (URL)</label>
+      <input type="text" name="image" placeholder="/images/example.png" />
+    </div>
+
+    <div class="row">
+      <label>Danh mục</label>
+      <input type="text" name="category" required />
+    </div>
+
+    <div class="row">
+      <label>Mô tả sản phẩm</label>
+      <textarea
+        name="description"
+        rows="4"
+        required
+        placeholder="Nhập mô tả chi tiết..."
+      ></textarea>
+    </div>
+
+    <button type="submit" class="admin-btn">Thêm sản phẩm</button>
+  </form>
+
+  <!-- DANH SÁCH SẢN PHẨM -->
+  <div class="admin-card">
+    <h2>Danh sách sản phẩm</h2>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Ảnh</th>
+          <th>Tên</th>
+          <th>Mô tả</th>
+          <th>Giá</th>
+          <th>Danh mục</th>
+          <th>Xóa</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% products.forEach(p => { %>
+        <tr>
+          <td>
+            <img src="<%= p.image %>" style="width: 60px; border-radius: 8px" />
+          </td>
+          <td><%= p.name %></td>
+          <td class="description-cell"><%- p.description.replace(/\n/g, '<br>') %></td>
+          <td><%= p.price.toLocaleString('vi-VN') %> ₫</td>
+          <td><%= p.category %></td>
+          <td>
+            <form
+              method="POST"
+              action="/admin/products/delete/<%= p.id %>"
+              onsubmit="return confirm('Xóa sản phẩm này?')"
+            >
+              <button class="delete-btn">Xóa</button>
+            </form>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
+
+<style>
+  .admin-container {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 20px;
+  }
+
+  .admin-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  }
+
+  .product-form .row {
+    margin-bottom: 12px;
+  }
+
+  .product-form input,
+  .product-form textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+
+  .product-form textarea {
+    resize: vertical;
+  }
+
+  .admin-btn {
+    background: #4caf50;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  .admin-btn:hover {
+    background: #45a049;
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
+
+  .admin-table th {
+    background: #f5f5f5;
+    text-align: left;
+  }
+
+  .description-cell {
+    max-width: 250px;
+    white-space: pre-wrap; /* giữ xuống dòng */
+    word-wrap: break-word; /* xuống dòng khi quá dài */
+  }
+
+  .delete-btn {
+    background: #e74c3c;
+    color: white;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .delete-btn:hover {
+    background: #c0392b;
+  }
+
+  @media (max-width: 768px) {
+    .admin-table th,
+    .admin-table td {
+      font-size: 13px;
+      padding: 8px;
+    }
+    .description-cell {
+      max-width: 150px;
+    }
+  }
+</style>
