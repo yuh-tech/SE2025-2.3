@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+
+<section class="signup-section">
+  <div class="signup-container">
+    <h2>Đăng ký tài khoản mới</h2>
+
+    <% if (error) { %>
+      <div class="alert error"><%= error %></div>
+    <% } %>
+
+    <% if (success) { %>
+      <div class="alert success"><%= success %></div>
+    <% } %>
+
+    <form method="POST" action="/signup" class="signup-form">
+      <input type="text" name="username" placeholder="Tên đăng nhập" required>
+      <input type="text" name="displayName" placeholder="Tên hiển thị" required>
+      <input type="password" name="password" placeholder="Mật khẩu" required>
+      <input type="password" name="confirmPassword" placeholder="Nhập lại mật khẩu" required>
+      <button type="submit" class="signup-btn">Đăng ký</button>
+    </form>
+
+    <p class="login-text">Đã có tài khoản? <a href="/login">Đăng nhập ngay</a></p>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

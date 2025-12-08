@@ -1,0 +1,326 @@
+/* ===== GLOBAL RESET ===== */
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:"Poppins",sans-serif; background:#f0f8ff; color:#333; line-height:1.6; }
+
+/* ===== HEADER ĐẸP NHƯ THIẾT KẾ ===== */
+header {
+  background:#fff;
+  padding:18px 40px;
+  box-shadow:0 2px 15px rgba(0,0,0,0.08);
+  position:sticky;
+  top:0;
+  z-index:1000;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+header .container { width:100%; max-width:1400px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; }
+
+/* Logo */
+header a.logo {
+  font-size:1.8rem;
+  font-weight:700;
+  color:#0077b6;
+  text-decoration:none;
+  letter-spacing:1px;
+}
+
+/* Menu */
+header nav {
+  display:flex;
+  align-items:center;
+  gap:28px;
+  font-size:1.05rem;
+}
+header nav a {
+  color:#005f8f;
+  text-decoration:none;
+  font-weight:500;
+  transition:0.3s;
+}
+header nav a:hover { color:#0096c7; }
+
+/* Xin chào + Đăng xuất */
+header nav span { color:#0077b6; font-weight:500; margin-right:15px; }
+
+/* Nút Đăng nhập / Đăng ký */
+header nav a[href="/login"],
+header nav a[href="/signup"] {
+  background:#90e0ef;
+  color:#003049;
+  padding:8px 16px;
+  border-radius:8px;
+  font-weight:500;
+  transition:0.3s;
+}
+header nav a[href="/login"]:hover,
+header nav a[href="/signup"]:hover {
+  background:#48cae4;
+}
+
+/* Icon giỏ hàng + badge số lượng */
+header nav > div {
+  position:relative;
+  margin-left:20px;
+}
+header nav svg {
+  width:28px;
+  height:28px;
+  stroke:#005f8f;
+  transition:0.3s;
+}
+header nav svg:hover { stroke:#0096c7; }
+#cartCount {
+  position:absolute;
+  top:-10px;
+  right:-10px;
+  background:#ff6b9d;
+  color:white;
+  font-size:12px;
+  font-weight:bold;
+  min-width:20px;
+  height:20px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 6px;
+  box-shadow:0 2px 8px rgba(255,107,157,0.5);
+}
+
+/* ===== HERO ===== */
+.hero { text-align:center; padding:80px 20px; background:linear-gradient(to bottom, #fff, #f0f8ff); }
+.hero h1 { font-size:2.8rem; color:#023e8a; margin-bottom:15px; }
+.hero p { font-size:1.2rem; color:#555; margin-bottom:25px; }
+.hero-btn { display:inline-block; padding:14px 32px; background:#0096c7; color:white; border-radius:50px; text-decoration:none; font-weight:600; transition:0.3s; }
+.hero-btn:hover { background:#0077b6; transform:translateY(-3px); box-shadow:0 10px 25px rgba(0,150,199,0.3); }
+
+/* ===== PRODUCT CARD TRÊN TRANG CHỦ ===== */
+.product-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+  gap:30px;
+  padding:20px;
+  max-width:1400px;
+  margin:0 auto;
+}
+.product-card {
+  background:white;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 8px 25px rgba(0,0,0,0.08);
+  transition:0.4s;
+  text-align:center;
+}
+.product-card:hover { transform:translateY(-10px); box-shadow:0 20px 40px rgba(0,0,0,0.15); }
+.product-card img {
+  width:100%;
+  height:320px;
+  object-fit:cover;
+  border-bottom:4px solid #a8e6cf;
+}
+.product-card h3 { margin:15px 10px 8px; font-size:1.2rem; color:#023e8a; }
+.product-card .price { font-size:1.3rem; font-weight:700; color:#0077b6; margin:5px 0; }
+
+/* Nút Xem chi tiết */
+.product-card .detail-btn {
+  display:inline-block;
+  margin:10px 0;
+  padding:10px 20px;
+  background:#90e0ef;
+  color:#003049;
+  border-radius:50px;
+  text-decoration:none;
+  font-weight:600;
+  transition:0.3s;
+}
+.product-card .detail-btn:hover {
+  background:#48cae4;
+  transform:translateY(-2px);
+}
+
+/* Nút Thêm vào giỏ – ĐẸP NHẤT */
+.product-card .quick-add-btn {
+  display:block !important;
+  width:88% !important;
+  margin:12px auto !important;
+  padding:13px !important;
+  background:linear-gradient(135deg, #a8e6cf, #88d8b0) !important;
+  color:#155d42 !important;
+  border:none !important;
+  border-radius:50px !important;
+  font-weight:700 !important;
+  font-size:15px !important;
+  cursor:pointer !important;
+  box-shadow:0 6px 20px rgba(168,230,207,0.5) !important;
+  transition:all 0.35s !important;
+}
+.product-card .quick-add-btn:hover {
+  background:linear-gradient(135deg, #88d8b0, #69c89a) !important;
+  transform:translateY(-4px) !important;
+  box-shadow:0 12px 30px rgba(168,230,207,0.7) !important;
+}
+
+/* ===== FOOTER ===== */
+.site-footer {
+  text-align:center;
+  padding:30px;
+  background:#e0f4ff;
+  margin-top:60px;
+  color:#005f8f;
+  font-weight:500;
+}
+
+/* ============== TRANG ĐĂNG NHẬP & ĐĂNG KÝ – ĐẸP 100% (dùng đúng class bạn đang có) ============== */
+.login-section, .signup-section {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e0f4ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-container, .signup-container {
+  background: white;
+  padding: 50px 40px;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+}
+
+.login-container h2, .signup-container h2 {
+  font-size: 2.3rem;
+  color: #023e8a;
+  margin-bottom: 30px;
+  font-weight: 700;
+}
+
+.login-form input, .signup-form input {
+  width: 100%;
+  padding: 16px 18px;
+  margin: 12px 0;
+  border: 2px solid #dce7f3;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  transition: all 0.3s;
+}
+
+.login-form input:focus, .signup-form input:focus {
+  outline: none;
+  border-color: #0096c7;
+  box-shadow: 0 0 0 5px rgba(0,150,199,0.2);
+}
+
+.login-btn, .signup-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #0096c7, #0077b6);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: all 0.3s;
+}
+
+.login-btn:hover, .signup-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0,150,199,0.4);
+}
+
+/* Nút OAuth (Google, Email) */
+.oauth-divider {
+  margin: 30px 0;
+  position: relative;
+  text-align: center;
+  color: #888;
+  font-weight: 600;
+}
+.oauth-divider span {
+  background: white;
+  padding: 0 20px;
+}
+
+.oauth-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #dce7f3;
+  z-index: -1;
+}
+
+.oauth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+  background: #f8fdff;
+  border: 2px solid #dce7f3;
+  border-radius: 14px;
+  text-decoration: none;
+  color: #333;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.oauth-btn:hover {
+  background: #e0f4ff;
+  border-color: #0096c7;
+  transform: translateY(-2px);
+}
+
+.oauth-btn img {
+  width: 24px;
+  height: 24px;
+}
+
+/* Alert */
+.alert {
+  padding: 14px;
+  border-radius: 12px;
+  margin: 15px 0;
+  font-weight: 600;
+}
+.alert.error { background: #ffe0e0; color: #d90429; border: 1px solid #ffb3b3; }
+.alert.success { background: #e0ffef; color: #007f5f; border: 1px solid #b3ffdc; }
+
+/* Link Đăng ký / Đăng nhập */
+.signup-text, .login-text {
+  margin-top: 25px;
+  font-size: 1rem;
+  color: #555;
+}
+.signup-text a, .login-text a {
+  color: #0096c7;
+  font-weight: 600;
+  text-decoration: none;
+}
+.signup-text a:hover, .login-text a:hover {
+  text-decoration: underline;
+}
+
+.add-to-cart-big.enabled {
+  background: linear-gradient(135deg, #a8e6cf, #88d8b0) !important;
+  box-shadow: 0 8px 25px rgba(168,230,207,0.5);
+}
+.add-to-cart-big.enabled:hover {
+  background: linear-gradient(135deg, #88d8b0, #69c89a) !important;
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 15px 35px rgba(168,230,207,0.7);
+}

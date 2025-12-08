@@ -1,0 +1,44 @@
+<%- include('partials/header') %>
+<%
+  const _success = typeof success !== 'undefined' ? success : null;
+  const _error = typeof error !== 'undefined' ? error : null;
+%>
+
+
+<section class="login-section">
+  <div class="login-container">
+    <h2>Đăng nhập tài khoản</h2>
+
+    <% if (_error) { %>
+      <div class="alert error"><%= _error %></div>
+    <% } %>
+
+    <% if (_success) { %>
+      <div class="alert success"><%= _success %></div>
+    <% } %>
+
+    <form method="POST" action="/login" class="login-form">
+      <input type="text" name="username" placeholder="Tên đăng nhập" required autofocus>
+      <input type="password" name="password" placeholder="Mật khẩu" required>
+      <button type="submit" class="login-btn">Đăng nhập</button>
+    </form>
+
+    <div class="oauth-divider"><span>HOẶC</span></div>
+
+    <div class="oauth-buttons">
+      <a href="/auth/google" class="btn oauth-btn google">
+        <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google" width="20">
+        Đăng nhập bằng Google
+      </a>
+
+      <a href="/auth/email" class="btn oauth-btn email">
+        <img src="/images/email-1573-svgrepo-com.svg" alt="Email" width="20">
+        Đăng nhập bằng Email
+      </a>
+    </div>
+
+    <p class="signup-text">Chưa có tài khoản? <a href="/signup">Đăng ký ngay</a></p>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
