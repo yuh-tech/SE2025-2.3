@@ -26,6 +26,22 @@
     </div>
 
     <div class="row">
+      <label>Màu sắc</label>
+      <div id="colors-wrapper" class="dynamic-wrapper">
+        <input type="text" class="dynamic-input" placeholder="Nhập màu" />
+        <button type="button" class="add-btn" id="add-color">+ Thêm màu</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Size</label>
+      <div id="sizes-wrapper" class="dynamic-wrapper">
+        <input type="text" class="dynamic-input" placeholder="Nhập size" />
+        <button type="button" class="add-btn" id="add-size">+ Thêm size</button>
+      </div>
+    </div>
+
+    <div class="row">
       <label>Mô tả sản phẩm</label>
       <textarea
         name="description"
@@ -53,7 +69,6 @@
           <th>Xóa</th>
         </tr>
       </thead>
-
       <tbody>
         <% products.forEach(p => { %>
         <tr>
@@ -79,6 +94,94 @@
     </table>
   </div>
 </div>
+
+<script>
+  function createDynamicInput(wrapper) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'dynamic-input';
+    input.placeholder = 'Nhập giá trị';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-btn';
+    removeBtn.textContent = '×';
+
+    removeBtn.addEventListener('click', () => {
+      wrapper.removeChild(input);
+      wrapper.removeChild(removeBtn);
+    });
+
+    input.addEventListener('input', () => {
+      input.style.width = 'auto';
+      input.style.width = input.value.length + 2 + 'ch';
+    });
+
+    wrapper.insertBefore(input, wrapper.querySelector('.add-btn'));
+    wrapper.insertBefore(removeBtn, wrapper.querySelector('.add-btn'));
+    input.focus();
+  }
+
+  document.getElementById('add-color').addEventListener('click', () => {
+    const wrapper = document.getElementById('colors-wrapper');
+    const lastInput = wrapper.querySelector('input:last-of-type');
+    if (!lastInput || lastInput.value.trim() !== '') {
+      createDynamicInput(wrapper);
+    } else {
+      lastInput.focus();
+    }
+  });
+
+  document.getElementById('add-size').addEventListener('click', () => {
+    const wrapper = document.getElementById('sizes-wrapper');
+    const lastInput = wrapper.querySelector('input:last-of-type');
+    if (!lastInput || lastInput.value.trim() !== '') {
+      createDynamicInput(wrapper);
+    } else {
+      lastInput.focus();
+    }
+  });
+
+  const productForm = document.querySelector('.product-form');
+  productForm.addEventListener('submit', (e) => {
+    const colorInputs = document.querySelectorAll('#colors-wrapper input');
+    const sizeInputs = document.querySelectorAll('#sizes-wrapper input');
+
+    const hasColor = Array.from(colorInputs).some(input => input.value.trim() !== '');
+    if (!hasColor) {
+      e.preventDefault();
+      alert('Vui lòng nhập ít nhất 1 màu cho sản phẩm!');
+      if (colorInputs[0]) colorInputs[0].focus();
+      return;
+    }
+
+    const hasSize = Array.from(sizeInputs).some(input => input.value.trim() !== '');
+    if (!hasSize) {
+      e.preventDefault();
+      alert('Vui lòng nhập ít nhất 1 size cho sản phẩm!');
+      if (sizeInputs[0]) sizeInputs[0].focus();
+      return;
+    }
+
+    const colorHidden = document.createElement('input');
+    colorHidden.type = 'hidden';
+    colorHidden.name = 'colors';
+    colorHidden.value = Array.from(colorInputs)
+      .map(input => input.value.trim())
+      .filter(val => val !== '')
+      .join(',');
+
+    const sizeHidden = document.createElement('input');
+    sizeHidden.type = 'hidden';
+    sizeHidden.name = 'sizes';
+    sizeHidden.value = Array.from(sizeInputs)
+      .map(input => input.value.trim())
+      .filter(val => val !== '');
+
+    productForm.appendChild(colorHidden);
+    productForm.appendChild(sizeHidden);
+  });
+</script>
 
 <%- include('../partials/footer') %>
 
@@ -148,8 +251,8 @@
 
   .description-cell {
     max-width: 250px;
-    white-space: pre-wrap; /* giữ xuống dòng */
-    word-wrap: break-word; /* xuống dòng khi quá dài */
+    white-space: pre-wrap;
+    word-wrap: break-word;
   }
 
   .delete-btn {
@@ -174,5 +277,48 @@
     .description-cell {
       max-width: 150px;
     }
+  }
+
+  .dynamic-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+  }
+
+  .dynamic-wrapper input {
+    padding: 5px 20px 5px 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    min-width: 30px;
+    max-width: 150px;
+    width: auto;
+    display: inline-block;
+    box-sizing: content-box;
+    position: relative;
+  }
+
+  .dynamic-wrapper .remove-btn {
+    position: relative;
+    left: -20px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .add-btn {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 2px;
   }
 </style>

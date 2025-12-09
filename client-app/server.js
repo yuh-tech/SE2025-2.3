@@ -1,11 +1,29 @@
-require('dotenv').config();
+const path = require('path'); // khai báo path đầu tiên
+require('dotenv').config({ path: path.join(__dirname, '../.env') }); // dùng path ngay sau đó
+
 const express = require('express');
-const path = require('path');
 const session = require('express-session');
 const fs = require('fs');
 
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./database/customers.db');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE,
+      displayName TEXT,
+      password TEXT,
+      role TEXT
+    )
+  `);
+});
+
 
 // ==================================
 // 1. MIDDLEWARE
@@ -137,56 +155,87 @@ app.get(['/', '/home'], (req, res) => {
 });
 
 // ----- LOGIN -----
-app.get('/login', (req, res) => {
-  res.render('login', { title: 'Đăng nhập', error: null });
-});
-
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const user = demoUsers.find((u) => u.username === username && u.password === password);
 
-  if (user) {
-    req.session.user = {
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role
-    };
-    req.session.cart = req.session.cart || [];
-    return res.redirect('/home');
-  }
+  const query = `SELECT * FROM customers WHERE username = ? AND password = ?`;
 
-  res.render('login', {
-    title: 'Đăng nhập',
-    error: 'Sai username hoặc password'
+  db.get(query, [username, password], (err, user) => {
+    if (err) return res.send("DB Error");
+
+    if (!user) {
+      return res.render('login', { 
+        title: 'Đăng nhập',
+        error: 'Sai tên đăng nhập hoặc mật khẩu!'
+      });
+    }
+
+    req.session.user = user;
+    res.redirect('/');
   });
 });
 
-// ----- SIGNUP -----
-app.get('/signup', (req, res) => {
-  res.render('signup', { title: 'Đăng ký', error: null, success: null });
+// Hiển thị form đăng nhập
+app.get('/login', (req, res) => {
+  res.render('login', { 
+    title: 'Đăng nhập',
+    error: null
+  });
 });
 
+
+
+// ----- SIGNUP -----
 app.post('/signup', (req, res) => {
   const { username, displayName, password, confirmPassword } = req.body;
 
-  if (demoUsers.some((u) => u.username === username)) {
-    return res.render('signup', { error: 'Tên đăng nhập đã tồn tại!' });
-  }
   if (password !== confirmPassword) {
-    return res.render('signup', { error: 'Mật khẩu nhập lại không khớp!' });
+    return res.render('signup', { 
+      title: 'Đăng ký',
+      error: 'Mật khẩu nhập lại không khớp!',
+      success: null
+    });
   }
 
-  demoUsers.push({
-    username,
-    password,
-    displayName,
-    role: 'customer'
-  });
+  const checkQuery = `SELECT * FROM customers WHERE username = ?`;
 
-  res.render('signup', {
-    success: 'Đăng ký thành công, hãy đăng nhập!'
+  db.get(checkQuery, [username], (err, row) => {
+    if (err) return res.send("DB Error");
+
+    if (row) {
+      return res.render('signup', { 
+        title: 'Đăng ký',
+        error: 'Tên đăng nhập đã tồn tại!',
+        success: null
+      });
+    }
+
+    const insertQuery = `
+      INSERT INTO customers (username, displayName, password, role)
+      VALUES (?, ?, ?, 'customer')
+    `;
+
+    db.run(insertQuery, [username, displayName, password], (err) => {
+      if (err) return res.send("Lỗi thêm user");
+
+      res.render('signup', {
+        title: 'Đăng ký',
+        error: null,
+        success: 'Đăng ký thành công, hãy đăng nhập!'
+      });
+    });
   });
 });
+// Hiển thị form đăng ký
+app.get('/signup', (req, res) => {
+  res.render('signup', { 
+    title: 'Đăng ký', 
+    error: null, 
+    success: null 
+  });
+});
+
+
 
 // ----- LOGOUT -----
 app.post('/logout', (req, res) => {
