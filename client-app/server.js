@@ -1,12 +1,40 @@
 const path = require('path'); // khai báo path đầu tiên
 require('dotenv').config({ path: path.join(__dirname, '../.env') }); // dùng path ngay sau đó
 
+
+const slugify = require('slugify');
+const fs = require('fs');
+
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Tạo folder theo tên sản phẩm (slug không dấu)
+    const slug = req.body.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/[^\w\-]+/g, '');
+    const dir = `./public/uploads/${slug}`;
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+
+const upload = multer({ storage: storage });
+
 const express = require('express');
 const session = require('express-session');
-const fs = require('fs');
 
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('./database/customers.db');
+const productDB = new sqlite3.Database('./database/products.db');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +48,41 @@ db.serialize(() => {
       displayName TEXT,
       password TEXT,
       role TEXT
+    )
+  `);
+});
+
+// Tạo bảng products
+productDB.serialize(() => {
+  productDB.run(`
+    CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      price INTEGER,
+      salePrice INTEGER DEFAULT 0,
+      image TEXT,
+      category TEXT,
+      description TEXT,
+      status TEXT CHECK(status IN ('normal', 'sale', 'hidden')) DEFAULT 'normal'
+    )
+  `);
+
+  productDB.run(`
+    CREATE TABLE IF NOT EXISTS product_sizes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER,
+      size TEXT,
+      quantity INTEGER,
+      FOREIGN KEY(product_id) REFERENCES products(id)
+    )
+  `);
+
+  productDB.run(`
+    CREATE TABLE IF NOT EXISTS product_colors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER,
+      color TEXT,
+      FOREIGN KEY(product_id) REFERENCES products(id)
     )
   `);
 });
@@ -244,39 +307,40 @@ app.post('/logout', (req, res) => {
 
 // ----- PRODUCTS -----
 app.get('/products', (req, res) => {
-  const category = req.query.category || 'all';
-  const search = req.query.search || '';
+  const query = "SELECT * FROM products";
 
-  let products = [...allProducts];
-  if (category !== 'all') {
-    products = products.filter((p) => p.category === category);
-  }
-  if (search) {
-    products = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
-  }
+  productDB.all(query, [], (err, rows) => {
+    if (err) return res.send("Lỗi DB");
 
-  const categories = ['all', ...new Set(allProducts.map((p) => p.category))];
-
-  res.render('products', {
-    title: 'Tất cả sản phẩm',
-    products,
-    categories
+    const categories = ['all', ...new Set(rows.map(p => p.category))];
+    res.render('products', {
+      title: 'Tất cả sản phẩm',
+      products: rows,
+      categories
+    });
   });
 });
 
+
 // ----- PRODUCT DETAIL -----
 app.get('/product/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const product = allProducts.find((p) => p.id === id);
+  const id = req.params.id;
 
-  if (!product) return res.send('<h1>404 - Không tìm thấy sản phẩm</h1><a href="/">Quay lại</a>');
+  productDB.get("SELECT * FROM products WHERE id = ?", [id], (err, product) => {
+    if (err) return res.send("DB Error");
+    if (!product) return res.send("Không tìm thấy sản phẩm");
 
-  const productReviews = reviews.filter((r) => r.productId === id);
+    // Convert colors/sizes từ string → array  
+    product.colors = product.colors ? product.colors.split(',') : [];
+    product.sizes = product.sizes ? product.sizes.split(',') : [];
 
-  res.render('product', {
-    title: product.name,
-    product,
-    reviews: productReviews
+    const productReviews = reviews.filter((r) => r.productId == id);
+
+    res.render('product', {
+      title: product.name,
+      product,
+      reviews: productReviews
+    });
   });
 });
 
@@ -435,53 +499,108 @@ app.get('/admin', isAdmin, (req, res) => {
   });
 });
 
-app.post('/admin/products/add', isAdmin, (req, res) => {
-  const { name, price, image, category, description } = req.body;
-
-  const newProduct = {
-    id: Date.now(),
-    name,
-    price: parseInt(price),
-    image: image || '/images/default.png',
-    category,
-    description
-  };
-
-  allProducts.push(newProduct);
-  res.redirect('/admin/products');
-});
 
 // ==================================
 // 13. ADMIN — QUẢN LÝ SẢN PHẨM
 // ==================================
 app.get('/admin/products', isAdmin, (req, res) => {
-  res.render('admin/products', {
-    title: 'Quản lý sản phẩm',
-    products: allProducts
+  const sql = `
+    SELECT p.*, 
+      GROUP_CONCAT(DISTINCT c.color) AS colors,
+      GROUP_CONCAT(s.size || ':' || s.quantity) AS sizes
+    FROM products p
+    LEFT JOIN product_colors c ON c.product_id = p.id
+    LEFT JOIN product_sizes s ON s.product_id = p.id
+    GROUP BY p.id
+    ORDER BY p.id DESC
+  `;
+
+  productDB.all(sql, [], (err, products) => {
+    if (err) return res.send("DB ERROR");
+
+    res.render('admin/products', {
+      title: "Quản lý sản phẩm",
+      products
+    });
   });
 });
 
-app.post('/admin/products/add', isAdmin, (req, res) => {
-  const { name, price, image, category } = req.body;
 
-  allProducts.push({
-    id: Date.now(),
-    name,
-    price: Number(price),
-    image: image || '/images/default.png',
-    category
+app.post('/admin/products/add', isAdmin, upload.array('images'), (req, res) => {
+  const { name, price, salePrice, category, description, status, colors, sizes_json } = req.body;
+
+  // Lấy array màu sắc
+  const colorList = colors ? colors.split(',') : [];
+
+  // Lấy array size + quantity
+  let sizeData = [];
+  try {
+    sizeData = sizes_json ? JSON.parse(sizes_json) : [];
+  } catch (e) {
+    sizeData = [];
+  }
+
+  // Lấy path tất cả ảnh đã upload
+  const imagePaths = req.files.map(f => {
+    // Lấy đường dẫn relative từ /public
+    return f.path.replace(/\\/g, '/').replace(/^public/, '');
   });
+  const mainImage = imagePaths[0] || null;
 
-  saveJSON(productsPath, allProducts);
-  res.redirect('/admin/products');
+  const sqlProduct = `
+    INSERT INTO products (name, price, salePrice, image, category, description, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+  productDB.run(
+    sqlProduct,
+    [name, price, salePrice || 0, mainImage, category, description, status],
+    function (err) {
+      if (err) {
+        console.error('SQL Lỗi khi thêm product:', err);
+        return res.send('Có lỗi SQL!');
+      }
+
+      const productId = this.lastID;
+
+      // INSERT COLORS
+      colorList.forEach(clr => {
+        productDB.run(
+          `INSERT INTO product_colors (product_id, color) VALUES (?, ?)`,
+          [productId, clr]
+        );
+      });
+
+      // INSERT SIZES
+      sizeData.forEach(row => {
+        productDB.run(
+          `INSERT INTO product_sizes (product_id, size, quantity) VALUES (?, ?, ?)`,
+          [productId, row.size, row.quantity]
+        );
+      });
+
+      res.redirect('/admin/products');
+    }
+  );
 });
 
 app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  allProducts = allProducts.filter((p) => p.id !== id);
-  saveJSON(productsPath, allProducts);
-  res.redirect('/admin/products');
+  const productId = Number(req.params.id);
+
+  productDB.serialize(() => {
+    // Xoá size
+    productDB.run(`DELETE FROM product_sizes WHERE product_id = ?`, [productId]);
+
+    // Xoá màu
+    productDB.run(`DELETE FROM product_colors WHERE product_id = ?`, [productId]);
+
+    // Xoá sản phẩm chính
+    productDB.run(`DELETE FROM products WHERE id = ?`, [productId], (err) => {
+      if (err) return res.send("Lỗi xóa sản phẩm");
+      res.redirect('/admin/products');
+    });
+  });
 });
+
 
 // ==================================
 // 14. ADMIN — QUẢN LÝ ĐƠN HÀNG

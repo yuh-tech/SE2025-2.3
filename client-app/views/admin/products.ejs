@@ -4,57 +4,66 @@
   <h1>Quản lý sản phẩm</h1>
 
   <!-- FORM THÊM SẢN PHẨM -->
-  <form action="/admin/products/add" method="POST" class="product-form">
+  <form action="/admin/products/add" method="POST" enctype="multipart/form-data" class="product-form">
+
     <div class="row">
       <label>Tên sản phẩm</label>
       <input type="text" name="name" required />
     </div>
 
     <div class="row">
-      <label>Giá</label>
+      <label>Giá gốc</label>
       <input type="number" name="price" required />
     </div>
 
     <div class="row">
-      <label>Ảnh (URL)</label>
-      <input type="text" name="image" placeholder="/images/example.png" />
+      <label>Giá sale</label>
+      <input type="number" name="salePrice" placeholder="0 nếu không sale" />
     </div>
+
+    <div class="row">
+      <label>Short mô tả</label>
+      <input type="text" name="shortDesc" maxlength="200" required />
+    </div>
+
+    <div class="row">
+      <label>Ảnh sản phẩm</label>
+      <input type="file" name="images" accept="image/*" multiple required />
+      <small>Bạn có thể chọn nhiều ảnh. Ảnh đầu tiên sẽ là ảnh chính.</small>
+    </div>
+
 
     <div class="row">
       <label>Danh mục</label>
       <input type="text" name="category" required />
     </div>
 
+    <!-- COLOR - SIZE - QUANTITY -->
     <div class="row">
-      <label>Màu sắc</label>
-      <div id="colors-wrapper" class="dynamic-wrapper">
-        <input type="text" class="dynamic-input" placeholder="Nhập màu" />
-        <button type="button" class="add-btn" id="add-color">+ Thêm màu</button>
-      </div>
+      <label>Thêm màu + size + SL</label>
+      <div id="variant-wrapper"></div>
+
+      <button type="button" class="add-variant-btn">+ Thêm biến thể</button>
     </div>
 
     <div class="row">
-      <label>Size</label>
-      <div id="sizes-wrapper" class="dynamic-wrapper">
-        <input type="text" class="dynamic-input" placeholder="Nhập size" />
-        <button type="button" class="add-btn" id="add-size">+ Thêm size</button>
-      </div>
+      <label>Mô tả chi tiết</label>
+      <textarea name="description" rows="4" required></textarea>
     </div>
 
     <div class="row">
-      <label>Mô tả sản phẩm</label>
-      <textarea
-        name="description"
-        rows="4"
-        required
-        placeholder="Nhập mô tả chi tiết..."
-      ></textarea>
+      <label>Trạng thái</label>
+      <select name="status" id="status-select">
+        <option value="normal">Bình thường</option>
+        <option value="sale">Đang Sale</option>
+        <option value="hidden">Ẩn</option>
+      </select>
     </div>
 
-    <button type="submit" class="admin-btn">Thêm sản phẩm</button>
+    <button class="admin-btn">Thêm sản phẩm</button>
   </form>
 
-  <!-- DANH SÁCH SẢN PHẨM -->
+  <!-- DANH SÁCH -->
   <div class="admin-card">
     <h2>Danh sách sản phẩm</h2>
 
@@ -63,31 +72,93 @@
         <tr>
           <th>Ảnh</th>
           <th>Tên</th>
-          <th>Mô tả</th>
+          <th>Mô tả ngắn</th>
           <th>Giá</th>
+          <th>Sale</th>
           <th>Danh mục</th>
+          <th>Colors</th>
+          <th>Variants</th>
+          <th>Trạng thái</th>
           <th>Xóa</th>
         </tr>
       </thead>
+
       <tbody>
-        <% products.forEach(p => { %>
+        <% products.forEach(p => { 
+             const imgs = p.images ? p.images.split(',') : [];
+        %>
         <tr>
+
+          <!-- Ảnh đại diện -->
           <td>
-            <img src="<%= p.image %>" style="width: 60px; border-radius: 8px" />
+            <% if (imgs.length > 0) { %>
+              <img src="/uploads/<%= imgs[0] %>" class="product-img" />
+              <% if (imgs.length > 1) { %>
+                <button onclick="showImages('<%= imgs.join(',') %>')">+Ảnh</button>
+              <% } %>
+            <% } else { %>
+              Không có ảnh
+            <% } %>
           </td>
+
           <td><%= p.name %></td>
-          <td class="description-cell"><%- p.description.replace(/\n/g, '<br>') %></td>
-          <td><%= p.price.toLocaleString('vi-VN') %> ₫</td>
-          <td><%= p.category %></td>
+
+          <td><%= p.shortDesc %></td>
+
+          <!-- Giá -->
+          <td><%= p.price.toLocaleString('vi-VN') %>₫</td>
+
+          <!-- Sale -->
           <td>
-            <form
-              method="POST"
-              action="/admin/products/delete/<%= p.id %>"
-              onsubmit="return confirm('Xóa sản phẩm này?')"
-            >
+            <% if (p.salePrice > 0) { %>
+              <span style="color:green; font-weight:bold;">✓ <%= p.salePrice.toLocaleString('vi-VN') %> ₫</span>
+            <% } else { %>
+              <span style="color:red; font-weight:bold;">✗</span>
+            <% } %>
+          </td>
+
+
+          <td><%= p.category %></td>
+
+          <!-- Colors -->
+          <td>
+            <% if (p.variants) {
+                 const colors = [...new Set(p.variants.split(',').map(v => v.split(':')[0]))];
+            %>
+              <%= colors.join(', ') %>
+            <% } else { %>Không có<% } %>
+          </td>
+
+          <!-- FULL VARIANT -->
+          <td>
+            <% if (p.variants) { 
+                 p.variants.split(',').forEach(v => {
+                   const [color, size, qty] = v.split(':');
+            %>
+              <div><strong><%= color %></strong> — <%= size %> : <%= qty %> cái</div>
+            <% }) } else { %>
+              Không có
+            <% } %>
+          </td>
+
+          <!-- Status -->
+          <td>
+            <span class="status <%= p.status %>">
+              <% if (p.status === 'normal') { %>Bình thường
+              <% } else if (p.status === 'sale') { %><span style="color:red">Sale</span>
+              <% } else { %><span style="opacity:0.5">Ẩn</span>
+              <% } %>
+            </span>
+          </td>
+
+          <!-- DELETE -->
+          <td>
+            <form method="POST" action="/admin/products/delete/<%= p.id %>"
+              onsubmit="return confirm('Xóa sản phẩm này?')">
               <button class="delete-btn">Xóa</button>
             </form>
           </td>
+
         </tr>
         <% }) %>
       </tbody>
@@ -96,229 +167,65 @@
 </div>
 
 <script>
-  function createDynamicInput(wrapper) {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'dynamic-input';
-    input.placeholder = 'Nhập giá trị';
-
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'remove-btn';
-    removeBtn.textContent = '×';
-
-    removeBtn.addEventListener('click', () => {
-      wrapper.removeChild(input);
-      wrapper.removeChild(removeBtn);
-    });
-
-    input.addEventListener('input', () => {
-      input.style.width = 'auto';
-      input.style.width = input.value.length + 2 + 'ch';
-    });
-
-    wrapper.insertBefore(input, wrapper.querySelector('.add-btn'));
-    wrapper.insertBefore(removeBtn, wrapper.querySelector('.add-btn'));
-    input.focus();
+  // Popup xem ảnh phụ
+  function showImages(list) {
+    alert("Các ảnh:\n" + list.split(',').join('\n'));
   }
 
-  document.getElementById('add-color').addEventListener('click', () => {
-    const wrapper = document.getElementById('colors-wrapper');
-    const lastInput = wrapper.querySelector('input:last-of-type');
-    if (!lastInput || lastInput.value.trim() !== '') {
-      createDynamicInput(wrapper);
-    } else {
-      lastInput.focus();
+  // THÊM 1 DÒNG VARIANT
+  document.querySelector(".add-variant-btn").onclick = () => {
+    const wrapper = document.getElementById("variant-wrapper");
+
+    const row = document.createElement("div");
+    row.className = "variant-row";
+
+    row.innerHTML = `
+      <input type="text" name="variant_color[]" placeholder="Màu">
+      <input type="text" name="variant_size[]" placeholder="Size">
+      <input type="number" name="variant_quantity[]" placeholder="SL">
+      <button type="button" class="remove-variant">×</button>
+    `;
+
+    row.querySelector(".remove-variant").onclick = () => row.remove();
+
+    wrapper.appendChild(row);
+  };
+
+document.getElementById("sale-price").addEventListener("input", function() {
+  const sale = Number(this.value);
+  const statusSelect = document.getElementById("status-select");
+
+  if (sale === 0) {
+    statusSelect.value = "sale";
+    statusSelect.disabled = true;
+  } else {
+    statusSelect.disabled = false;
+    if (statusSelect.value === "sale") {
+      statusSelect.value = "normal";
     }
-  });
+  }
+});
 
-  document.getElementById('add-size').addEventListener('click', () => {
-    const wrapper = document.getElementById('sizes-wrapper');
-    const lastInput = wrapper.querySelector('input:last-of-type');
-    if (!lastInput || lastInput.value.trim() !== '') {
-      createDynamicInput(wrapper);
-    } else {
-      lastInput.focus();
-    }
-  });
 
-  const productForm = document.querySelector('.product-form');
-  productForm.addEventListener('submit', (e) => {
-    const colorInputs = document.querySelectorAll('#colors-wrapper input');
-    const sizeInputs = document.querySelectorAll('#sizes-wrapper input');
-
-    const hasColor = Array.from(colorInputs).some(input => input.value.trim() !== '');
-    if (!hasColor) {
-      e.preventDefault();
-      alert('Vui lòng nhập ít nhất 1 màu cho sản phẩm!');
-      if (colorInputs[0]) colorInputs[0].focus();
-      return;
-    }
-
-    const hasSize = Array.from(sizeInputs).some(input => input.value.trim() !== '');
-    if (!hasSize) {
-      e.preventDefault();
-      alert('Vui lòng nhập ít nhất 1 size cho sản phẩm!');
-      if (sizeInputs[0]) sizeInputs[0].focus();
-      return;
-    }
-
-    const colorHidden = document.createElement('input');
-    colorHidden.type = 'hidden';
-    colorHidden.name = 'colors';
-    colorHidden.value = Array.from(colorInputs)
-      .map(input => input.value.trim())
-      .filter(val => val !== '')
-      .join(',');
-
-    const sizeHidden = document.createElement('input');
-    sizeHidden.type = 'hidden';
-    sizeHidden.name = 'sizes';
-    sizeHidden.value = Array.from(sizeInputs)
-      .map(input => input.value.trim())
-      .filter(val => val !== '');
-
-    productForm.appendChild(colorHidden);
-    productForm.appendChild(sizeHidden);
-  });
 </script>
 
-<%- include('../partials/footer') %>
-
 <style>
-  .admin-container {
-    max-width: 1000px;
-    margin: 40px auto;
-    padding: 20px;
-  }
-
-  .admin-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 30px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-  }
-
-  .product-form .row {
-    margin-bottom: 12px;
-  }
-
-  .product-form input,
-  .product-form textarea {
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 14px;
-    box-sizing: border-box;
-  }
-
-  .product-form textarea {
-    resize: vertical;
-  }
-
-  .admin-btn {
-    background: #4caf50;
-    color: white;
-    padding: 10px 20px;
+  .product-img {
+    width: 60px;
+    height: 60px;
     border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    margin-top: 10px;
-  }
-
-  .admin-btn:hover {
-    background: #45a049;
-  }
-
-  .admin-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .admin-table th,
-  .admin-table td {
-    padding: 12px;
-    border-bottom: 1px solid #ddd;
-    vertical-align: top;
-  }
-
-  .admin-table th {
-    background: #f5f5f5;
-    text-align: left;
-  }
-
-  .description-cell {
-    max-width: 250px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-  }
-
-  .delete-btn {
-    background: #e74c3c;
-    color: white;
-    padding: 6px 14px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-  }
-
-  .delete-btn:hover {
-    background: #c0392b;
+    object-fit: cover;
   }
 
   @media (max-width: 768px) {
-    .admin-table th,
-    .admin-table td {
-      font-size: 13px;
-      padding: 8px;
+    .admin-table {
+      font-size: 12px;
     }
-    .description-cell {
-      max-width: 150px;
+    .product-img {
+      width: 45px;
+      height: 45px;
     }
-  }
-
-  .dynamic-wrapper {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 5px;
-  }
-
-  .dynamic-wrapper input {
-    padding: 5px 20px 5px 5px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-    min-width: 30px;
-    max-width: 150px;
-    width: auto;
-    display: inline-block;
-    box-sizing: content-box;
-    position: relative;
-  }
-
-  .dynamic-wrapper .remove-btn {
-    position: relative;
-    left: -20px;
-    background: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .add-btn {
-    background: #4caf50;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 2px;
   }
 </style>
+
+<%- include('../partials/footer') %>
