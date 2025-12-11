@@ -1,0 +1,242 @@
+/* ===============================
+   Layout chung
+================================= */
+.admin-container {
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+h1, h2 {
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+/* ===============================
+   FORM THÊM SẢN PHẨM
+================================= */
+.product-form {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  margin-bottom: 35px;
+}
+
+.product-form .row {
+  margin-bottom: 15px;
+}
+
+.product-form label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.product-form input,
+.product-form textarea,
+.product-form select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.product-form textarea {
+  resize: vertical;
+}
+
+.admin-btn {
+  background: #4CAF50;
+  color: white;
+  padding: 10px 22px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: 0.2s;
+}
+
+.admin-btn:hover {
+  background: #45a049;
+}
+
+/* ===============================
+   VARIANT INPUTS
+================================= */
+#variant-wrapper {
+  margin-top: 10px;
+}
+
+.variant-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.variant-row input {
+  flex: 1;
+}
+
+.remove-variant {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.add-variant-btn {
+  margin-top: 12px;
+  background: #3498db;
+  color: #fff;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.add-variant-btn:hover {
+  background: #2980b9;
+}
+
+/* ===============================
+   PRODUCT LIST TABLE
+================================= */
+.admin-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.admin-table th {
+  background: #f8f8f8;
+  padding: 12px;
+  text-align: left;
+  font-weight: bold;
+  color: #333;
+}
+
+.admin-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+  font-size: 14px;
+}
+
+/* Ảnh nhỏ */
+.product-img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Popup ảnh phụ */
+.view-more-img {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.view-more-img:hover {
+  background: #2980b9;
+}
+
+/* ===============================
+   STATUS TAG
+================================= */
+.status {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: bold;
+  display: inline-block;
+}
+
+.status.normal {
+  background: #eee;
+  color: #555;
+}
+
+.status.sale {
+  background: #ffe5e5;
+  color: #d63031;
+}
+
+.status.hidden {
+  background: #ddd;
+  color: #999;
+}
+
+/* DELETE BUTTON */
+.delete-btn {
+  background: #e74c3c;
+  color: white;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.delete-btn:hover {
+  background: #c0392b;
+}
+
+/* ===============================
+   RESPONSIVE
+================================= */
+@media (max-width: 768px) {
+  .admin-table th,
+  .admin-table td {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .product-img {
+    width: 45px;
+    height: 45px;
+  }
+
+  .variant-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-x: auto;
+  display: block;
+    }
+
+    .admin-table th, .admin-table td {
+    white-space: nowrap;
+    }
+
+}
+
+
