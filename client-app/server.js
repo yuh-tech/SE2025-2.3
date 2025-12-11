@@ -3,9 +3,25 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+
+// ==================================
+// OAuth 2.0 Configuration
+// ==================================
+const OAUTH_CONFIG = {
+  issuer: process.env.OAUTH_ISSUER || 'http://localhost:3000',
+  client_id: process.env.OAUTH_CLIENT_ID || 'my_app',
+  client_secret: process.env.OAUTH_CLIENT_SECRET || 'demo-client-secret',
+  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:8080/callback',
+  scope: 'openid profile email offline_access',
+  authorization_endpoint: '/authorize',
+  token_endpoint: '/token',
+  userinfo_endpoint: '/userinfo',
+  logout_endpoint: '/logout',
+};
 
 // ==================================
 // 1. MIDDLEWARE
@@ -158,6 +174,199 @@ app.post('/login', (req, res) => {
   res.render('login', {
     title: 'Đăng nhập',
     error: 'Sai username hoặc password'
+  });
+});
+
+// ==================================
+// OAuth 2.0 LOGIN FLOW
+// ==================================
+
+/**
+ * Helper: Generate PKCE code verifier and challenge
+ */
+function generatePKCE() {
+  const codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url');
+  return { codeVerifier, codeChallenge };
+}
+
+/**
+ * GET /auth/oauth - Redirect to OAuth Server for login
+ */
+app.get('/auth/oauth', (req, res) => {
+  // Generate state để chống CSRF
+  const state = crypto.randomBytes(16).toString('hex');
+  
+  // Generate PKCE
+  const { codeVerifier, codeChallenge } = generatePKCE();
+  
+  // Lưu state và code_verifier vào session để verify sau
+  req.session.oauth_state = state;
+  req.session.code_verifier = codeVerifier;
+  
+  // Tạo authorization URL
+  const authUrl = new URL(OAUTH_CONFIG.authorization_endpoint, OAUTH_CONFIG.issuer);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('client_id', OAUTH_CONFIG.client_id);
+  authUrl.searchParams.set('redirect_uri', OAUTH_CONFIG.redirect_uri);
+  authUrl.searchParams.set('scope', OAUTH_CONFIG.scope);
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('code_challenge', codeChallenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+  
+  console.log('🔐 Redirecting to OAuth Server:', authUrl.toString());
+  
+  res.redirect(authUrl.toString());
+});
+
+/**
+ * GET /callback - Handle OAuth callback with authorization code
+ */
+app.get('/callback', async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+  
+  // Kiểm tra lỗi từ OAuth server
+  if (error) {
+    console.error('❌ OAuth Error:', error, error_description);
+    return res.render('error', { 
+      title: 'OAuth Error',
+      message: error_description || error 
+    });
+  }
+  
+  // Verify state
+  if (state !== req.session.oauth_state) {
+    console.error('❌ Invalid state parameter');
+    return res.render('error', { 
+      title: 'Security Error',
+      message: 'Invalid state parameter - possible CSRF attack' 
+    });
+  }
+  
+  // Lấy code_verifier từ session
+  const codeVerifier = req.session.code_verifier;
+  
+  if (!code || !codeVerifier) {
+    console.error('❌ Missing code or code_verifier');
+    return res.render('error', { 
+      title: 'OAuth Error',
+      message: 'Missing authorization code or PKCE verifier' 
+    });
+  }
+  
+  try {
+    // Exchange authorization code for tokens
+    const tokenUrl = new URL(OAUTH_CONFIG.token_endpoint, OAUTH_CONFIG.issuer);
+    
+    const tokenResponse = await fetch(tokenUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + Buffer.from(
+          `${OAUTH_CONFIG.client_id}:${OAUTH_CONFIG.client_secret}`
+        ).toString('base64'),
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: OAUTH_CONFIG.redirect_uri,
+        code_verifier: codeVerifier,
+      }).toString(),
+    });
+    
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      console.error('❌ Token exchange failed:', errorData);
+      return res.render('error', { 
+        title: 'Token Error',
+        message: errorData.error_description || 'Failed to exchange code for token' 
+      });
+    }
+    
+    const tokens = await tokenResponse.json();
+    console.log('✅ Tokens received:', {
+      access_token: tokens.access_token ? '***exists***' : 'missing',
+      id_token: tokens.id_token ? '***exists***' : 'missing',
+      refresh_token: tokens.refresh_token ? '***exists***' : 'missing',
+      expires_in: tokens.expires_in,
+    });
+    
+    // Lấy thông tin user từ userinfo endpoint
+    const userinfoUrl = new URL(OAUTH_CONFIG.userinfo_endpoint, OAUTH_CONFIG.issuer);
+    
+    const userinfoResponse = await fetch(userinfoUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+      },
+    });
+    
+    if (!userinfoResponse.ok) {
+      console.error('❌ Failed to get userinfo');
+      return res.render('error', { 
+        title: 'Userinfo Error',
+        message: 'Failed to get user information' 
+      });
+    }
+    
+    const userinfo = await userinfoResponse.json();
+    console.log('✅ Userinfo received:', userinfo);
+    
+    // Lưu thông tin user vào session
+    req.session.user = {
+      id: userinfo.sub,
+      username: userinfo.preferred_username || userinfo.nickname || userinfo.name,
+      displayName: userinfo.name || userinfo.given_name,
+      email: userinfo.email,
+      role: userinfo.role || 'customer',
+      oauth: true, // Đánh dấu đây là user đăng nhập qua OAuth
+    };
+    
+    // Lưu tokens vào session (có thể dùng để refresh hoặc call API)
+    req.session.tokens = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: Date.now() + (tokens.expires_in * 1000),
+    };
+    
+    // Xóa state và code_verifier
+    delete req.session.oauth_state;
+    delete req.session.code_verifier;
+    
+    req.session.cart = req.session.cart || [];
+    
+    console.log('✅ User logged in via OAuth:', req.session.user);
+    
+    res.redirect('/home');
+    
+  } catch (err) {
+    console.error('❌ OAuth callback error:', err);
+    res.render('error', { 
+      title: 'OAuth Error',
+      message: 'An error occurred during authentication' 
+    });
+  }
+});
+
+/**
+ * GET /auth/logout - Logout from both app and OAuth server
+ */
+app.get('/auth/logout', (req, res) => {
+  const idToken = req.session.tokens?.id_token;
+  
+  // Xóa session local
+  req.session.destroy(() => {
+    // Redirect đến OAuth server logout endpoint
+    const logoutUrl = new URL(OAUTH_CONFIG.logout_endpoint, OAUTH_CONFIG.issuer);
+    logoutUrl.searchParams.set('post_logout_redirect_uri', 'http://localhost:8080');
+    
+    if (idToken) {
+      logoutUrl.searchParams.set('id_token_hint', idToken);
+    }
+    
+    res.redirect(logoutUrl.toString());
   });
 });
 
