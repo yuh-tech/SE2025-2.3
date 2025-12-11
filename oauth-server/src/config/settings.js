@@ -33,6 +33,9 @@ const settings = {
     pushedAuthorizationRequests: { enabled: false },
 
     encryption: { enabled: false },
+    
+    // Disable devInteractions since we have our own interaction routes
+    devInteractions: { enabled: false },
   },
 
   /* ---------------------------- CLAIMS ---------------------------- */
