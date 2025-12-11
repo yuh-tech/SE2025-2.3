@@ -290,6 +290,22 @@ header nav svg:hover { stroke:#0096c7; }
   height: 24px;
 }
 
+/* OAuth Server Button */
+.oauth-btn.oauth-server {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  font-size: 1.1rem;
+  padding: 16px;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.oauth-btn.oauth-server:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4095 100%);
+}
+
 /* Alert */
 .alert {
   padding: 14px;
