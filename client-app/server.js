@@ -1,4 +1,6 @@
 const path = require('path'); // khai báo path đầu tiên
+console.log('server.js loaded');
+console.log('SERVER FILE:', __filename);
 require('dotenv').config({ path: path.join(__dirname, '../.env') }); // dùng path ngay sau đó
 
 
@@ -10,14 +12,8 @@ const multer = require('multer');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Tạo folder theo tên sản phẩm (slug không dấu)
-    const slug = req.body.name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '_')
-      .replace(/[^\w\-]+/g, '');
-    const dir = `./public/uploads/${slug}`;
+    // Lưu tạm vào thư mục uploads chung (tránh dùng req.body trong destination)
+    const dir = path.join(__dirname, 'public', 'uploads');
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -39,7 +35,47 @@ const productDB = new sqlite3.Database('./database/products.db');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+// Export the app for external start scripts / tests
+module.exports = app;
 
+// ========== MIDDLEWARE CƠ BẢN ==========
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'secret-key-very-hard-to-guess',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }
+  })
+);
+
+// Log session id (hữu ích khi debug)
+app.use((req, res, next) => {
+  try {
+    console.log('SESSION ID:', req.sessionID);
+  } catch (e) {}
+  next();
+});
+
+// Request logger (help debug routes like delete)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/admin/products/delete')) {
+    console.log('>>> INCOMING REQ:', req.method, req.path, 'from', req.ip);
+    console.log('Headers:', { host: req.headers.host, referer: req.headers.referer });
+  }
+  next();
+});
+// Gắn currentUser và cart vào locals cho EJS (để partial header dùng)
+app.use((req, res, next) => {
+  res.locals.currentUser = req.session?.user || null;
+  res.locals.cart = req.session?.cart || [];
+  next();
+});
+
+console.log('checkpoint A - middleware configured');
 // ==================================
 // OAuth 2.0 Configuration
 // ==================================
@@ -70,73 +106,50 @@ db.serialize(() => {
 
 // Tạo bảng products
 productDB.serialize(() => {
+
+  // NOTE: Do not drop tables on startup to preserve data between restarts.
+
+  // BẢNG PRODUCTS
   productDB.run(`
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
+      shortDescription TEXT,
+      description TEXT,
       price INTEGER,
       salePrice INTEGER DEFAULT 0,
-      image TEXT,
       category TEXT,
-      description TEXT,
-      status TEXT CHECK(status IN ('normal', 'sale', 'hidden')) DEFAULT 'normal'
+      status TEXT CHECK(status IN ('normal','sale','hidden')) DEFAULT 'normal',
+      createdAt TEXT,
+      colors TEXT,
+      image TEXT,
+      images TEXT
     )
   `);
 
+  // BẢNG SỐ LƯỢNG
   productDB.run(`
-    CREATE TABLE IF NOT EXISTS product_sizes (
+    CREATE TABLE IF NOT EXISTS product_quantity (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id INTEGER,
+      color TEXT,
       size TEXT,
       quantity INTEGER,
       FOREIGN KEY(product_id) REFERENCES products(id)
     )
   `);
 
-  productDB.run(`
-    CREATE TABLE IF NOT EXISTS product_colors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      product_id INTEGER,
-      color TEXT,
-      FOREIGN KEY(product_id) REFERENCES products(id)
-    )
-  `);
 });
 
-
-// ==================================
-// 1. MIDDLEWARE
-// ==================================
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'secret-key-very-hard-to-guess',
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }
-  })
-);
-
-app.use((req, res, next) => {
-  console.log('SESSION ID:', req.sessionID);
-  next();
-});
-
-// Gửi thông tin user + cart sang EJS
-app.use((req, res, next) => {
-  res.locals.currentUser = req.session.user || null;
-  res.locals.cart = req.session.cart || [];
-  next();
-});
+console.log('checkpoint B - productDB schema ensured');
 
 // ==================================
 // 2. PHÂN QUYỀN ADMIN
 // ==================================
 function isAdmin(req, res, next) {
+  console.log('isAdmin check - sessionID:', req.sessionID, 'user:', req.session?.user);
   if (!req.session.user || req.session.user.role !== 'admin') {
+    console.log('isAdmin DENY - sessionID:', req.sessionID, 'user:', req.session?.user);
     return res.status(403).send('<h1>403 - Không có quyền truy cập</h1><a href="/">Quay lại shop</a>');
   }
   next();
@@ -223,6 +236,8 @@ const demoUsers = [
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+console.log('checkpoint C - EJS configured, views path set');
+
 // ==================================
 // 6. ROUTES — KHÁCH HÀNG
 // ==================================
@@ -251,6 +266,15 @@ app.post('/login', (req, res) => {
 
     req.session.user = user;
     res.redirect('/');
+  });
+});
+
+// Hiển thị trang đăng nhập (GET) - nếu thiếu sẽ gây 404 khi bấm link
+app.get('/login', (req, res) => {
+  res.render('login', {
+    title: 'Đăng nhập',
+    error: null,
+    success: req.query.success || null
   });
 });
 
@@ -427,6 +451,10 @@ app.get('/callback', async (req, res) => {
   }
 });
 
+console.log('checkpoint D - OAuth routes set');
+console.log('checkpoint D.1 - continuing after OAuth routes');
+console.log('marker: after checkpoint D.1');
+
 /**
  * GET /auth/logout - Logout from both app and OAuth server
  */
@@ -448,6 +476,7 @@ app.get('/auth/logout', (req, res) => {
 });
 
 // ----- SIGNUP -----
+console.log('marker: before signup GET');
 app.get('/signup', (req, res) => {
   res.render('signup', { title: 'Đăng ký', error: null, success: null });
 });
@@ -513,15 +542,27 @@ app.post('/logout', (req, res) => {
 
 // ----- PRODUCTS -----
 app.get('/products', (req, res) => {
+  console.log('marker: inside /products route definition');
   const query = "SELECT * FROM products";
 
   productDB.all(query, [], (err, rows) => {
-    if (err) return res.send("Lỗi DB");
+    if (err) {
+      console.error('Lỗi khi đọc products từ DB:', err);
+      const categories = ['all', ...new Set(allProducts.map(p => p.category))];
+      return res.render('products', {
+        title: 'Tất cả sản phẩm',
+        products: allProducts,
+        categories
+      });
+    }
 
-    const categories = ['all', ...new Set(rows.map(p => p.category))];
+    // Nếu DB rỗng (ví dụ môi trường dev chưa có seed), fallback sang products.json
+    const productsToRender = (rows && rows.length > 0) ? rows : allProducts;
+    const categories = ['all', ...new Set(productsToRender.map(p => p.category))];
+
     res.render('products', {
       title: 'Tất cả sản phẩm',
-      products: rows,
+      products: productsToRender,
       categories
     });
   });
@@ -530,6 +571,7 @@ app.get('/products', (req, res) => {
 
 // ----- PRODUCT DETAIL -----
 app.get('/product/:id', (req, res) => {
+  console.log('marker: inside /product/:id route definition');
   const id = req.params.id;
 
   productDB.get("SELECT * FROM products WHERE id = ?", [id], (err, product) => {
@@ -552,6 +594,7 @@ app.get('/product/:id', (req, res) => {
 
 // LẤY SỐ LƯỢNG GIỎ HÀNG — Fix cho header
 app.get('/cart/count', (req, res) => {
+  console.log('marker: inside /cart/count route definition');
   const cart = req.session.cart || [];
   const total = cart.reduce((sum, item) => sum + item.quantity, 0);
   res.json({ count: total });
@@ -561,6 +604,7 @@ app.get('/cart/count', (req, res) => {
 // 7. GIỎ HÀNG
 // ==================================
 app.get('/cart', (req, res) => {
+  console.log('marker: inside /cart route definition');
   const cart = req.session.cart || [];
   res.render('cart', { title: 'Giỏ hàng', cart });
 });
@@ -711,123 +755,235 @@ app.get('/admin', isAdmin, (req, res) => {
 // ==================================
 app.get('/admin/products', isAdmin, (req, res) => {
   const sql = `
-    SELECT p.*, 
-      GROUP_CONCAT(DISTINCT c.color) AS colors,
-      GROUP_CONCAT(s.size || ':' || s.quantity) AS sizes
+    SELECT 
+      p.*,
+      -- unique colors
+      (SELECT GROUP_CONCAT(DISTINCT pq.color)
+         FROM product_quantity pq 
+         WHERE pq.product_id = p.id) AS colors,
+
+      -- list variants: "color|size|quantity" → sau dùng split trong EJS
+      (SELECT GROUP_CONCAT(pq.color || '|' || pq.size || '|' || pq.quantity)
+         FROM product_quantity pq 
+         WHERE pq.product_id = p.id) AS variants
     FROM products p
-    LEFT JOIN product_colors c ON c.product_id = p.id
-    LEFT JOIN product_sizes s ON s.product_id = p.id
-    GROUP BY p.id
-    ORDER BY p.id DESC
+    ORDER BY p.id DESC;
   `;
 
   productDB.all(sql, [], (err, products) => {
-    if (err) return res.send("DB ERROR");
+    if (err) {
+      console.error("Lỗi truy vấn DB:", err);
+      return res.send("DB ERROR");
+    }
+
+    // Convert variants thành array of objects
+    products = products.map(p => {
+      p.colors = p.colors ? p.colors.split(",") : [];
+
+      p.variants = p.variants
+        ? p.variants.split(",").map(v => {
+            const [color, size, quantity] = v.split("|");
+            return { color, size, quantity };
+          })
+        : [];
+
+      return p;
+    });
+
+    // #region agent log: admin/products variants shape
+    products.forEach(p => {
+      fetch('http://127.0.0.1:7242/ingest/74da59a2-5dcd-4fb6-a048-a86c62e73f32', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'srv-rerun1',
+          hypothesisId: 'H_srv_variants',
+          location: 'server.js:/admin/products',
+          message: 'variants shape before render',
+          data: {
+            id: p.id,
+            type: typeof p.variants,
+            isArray: Array.isArray(p.variants),
+            sample: p.variants
+          },
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+    });
+    // #endregion
 
     res.render('admin/products', {
-      title: "Quản lý sản phẩm",
+      title: 'Quản lý sản phẩm',
       products
     });
   });
 });
 
 
-app.post('/admin/products/add', isAdmin, upload.array('images'), (req, res) => {
-  const { name, price, salePrice, category, description, status, colors, sizes_json } = req.body;
+app.post(
+  "/admin/products/add",
+  isAdmin,
+  upload.array("images[]", 10), // ⭐ MATCH ĐÚNG name
+  (req, res) => {
+    console.log('FILES:', req.files); // test
+    const { 
+      name, 
+      price, 
+      salePrice, 
+      shortDesc,
+      description, 
+      category, 
+      status 
+    } = req.body;
 
-  // Lấy array màu sắc
-  const colorList = colors ? colors.split(',') : [];
+    // Debug: log body and variant fields
+    console.log('BODY keys:', Object.keys(req.body));
+    console.log('raw variant_color[]:', req.body['variant_color[]']);
+    console.log('raw variant_size[]:', req.body['variant_size[]']);
+    console.log('raw variant_quantity[]:', req.body['variant_quantity[]']);
 
-  // Lấy array size + quantity
-  let sizeData = [];
-  try {
-    sizeData = sizes_json ? JSON.parse(sizes_json) : [];
-  } catch (e) {
-    sizeData = [];
-  }
+    // Xử lý file đã upload: lưu đường dẫn relative (từ /public)
+    const files = req.files || [];
+    const imagePaths = files.map(f => f.path.replace(/\\/g, '/').replace(/^.*public/, ''));
+    const mainImage = imagePaths[0] || null;
 
-  // Lấy path tất cả ảnh đã upload
-  const imagePaths = req.files.map(f => {
-    // Lấy đường dẫn relative từ /public
-    return f.path.replace(/\\/g, '/').replace(/^public/, '');
-  });
-  const mainImage = imagePaths[0] || null;
+    // Normalize variant fields: accept variant_color[], variant_color, or variant_color[] as keys
+    function normalizeField(keyBase) {
+      const candidates = [keyBase + '[]', keyBase, keyBase.replace(/\[\]$/, '')];
+      for (const k of candidates) {
+        if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+          const v = req.body[k];
+          if (Array.isArray(v)) return v;
+          if (typeof v === 'string') return [v];
+        }
+      }
+      return [];
+    }
 
-  const sqlProduct = `
-    INSERT INTO products (name, price, salePrice, image, category, description, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-  productDB.run(
-    sqlProduct,
-    [name, price, salePrice || 0, mainImage, category, description, status],
-    function (err) {
-      if (err) {
-        console.error('SQL Lỗi khi thêm product:', err);
-        return res.send('Có lỗi SQL!');
+    let colors = normalizeField('variant_color');
+    let sizes = normalizeField('variant_size');
+    let quantities = normalizeField('variant_quantity');
+
+    const uniqueColors = [...new Set(colors)];
+    const createdAt = new Date().toISOString();
+
+    // Determine status: prefer explicit status field, else infer from salePrice
+    const finalStatus = (status && String(status).trim()) ? String(status).trim() : (Number(salePrice) > 0 ? 'sale' : 'normal');
+
+    // Prevent duplicate product names
+    productDB.get('SELECT id FROM products WHERE name = ?', [name], (dupErr, dupRow) => {
+      if (dupErr) {
+        console.error('Duplicate check error:', dupErr);
+        return res.send('DB ERROR');
+      }
+      if (dupRow) {
+        return res.send('Product with same name already exists');
       }
 
-      const productId = this.lastID;
+      productDB.run(
+      `
+      INSERT INTO products
+      (name, shortDescription, description, price, salePrice, category, status, createdAt, colors, image, images)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        name,
+        shortDesc,
+        description,
+        Number(price),
+        Number(salePrice || 0),
+        category,
+        finalStatus,
+        createdAt,
+        uniqueColors.join(","),
+        mainImage,
+        imagePaths.join(',')
+      ],
+      function (err) {
+        if (err) {
+          console.error(err);
+          return res.send("SQL ERROR");
+        }
 
-      // INSERT COLORS
-      colorList.forEach(clr => {
-        productDB.run(
-          `INSERT INTO product_colors (product_id, color) VALUES (?, ?)`,
-          [productId, clr]
-        );
-      });
+        const productId = this.lastID;
 
-      // INSERT SIZES
-      sizeData.forEach(row => {
-        productDB.run(
-          `INSERT INTO product_sizes (product_id, size, quantity) VALUES (?, ?, ?)`,
-          [productId, row.size, row.quantity]
-        );
-      });
+        const sqlVariant = `
+          INSERT INTO product_quantity (product_id, color, size, quantity)
+          VALUES (?, ?, ?, ?)
+        `;
 
-      res.redirect('/admin/products');
-    }
-  );
-});
+        // Insert each variant with error logging
+        for (let i = 0; i < colors.length; i++) {
+          const color = colors[i] || '';
+          const size = sizes[i] || '';
+          const qty = Number(quantities[i] || 0);
 
+          productDB.run(sqlVariant, [productId, color, size, qty], (verr) => {
+            if (verr) console.error('Variant insert error:', verr, { productId, color, size, qty });
+          });
+        }
+
+        res.redirect('/admin/products');
+      }
+    );
+  }
+);
+
+console.log('checkpoint E - admin products add route defined');
+
+
+// DELETE product route (remove variants then product)
+console.log('REGISTER DELETE ROUTE');
 app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
-  const productId = Number(req.params.id);
+  const id = Number(req.params.id);
+  console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
+  if (!id) return res.status(400).send('Invalid id');
 
-  productDB.serialize(() => {
-    // Xoá size
-    productDB.run(`DELETE FROM product_sizes WHERE product_id = ?`, [productId]);
+  // Verify product exists and remove any uploaded image files
+  productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
+    if (gErr) {
+      console.error('Error querying product before delete:', gErr);
+      return res.status(500).send('DB error');
+    }
+    if (!row) return res.status(404).send('Product not found');
 
-    // Xoá màu
-    productDB.run(`DELETE FROM product_colors WHERE product_id = ?`, [productId]);
+    const filesToRemove = [];
+    if (row.image) filesToRemove.push(row.image);
+    if (row.images) {
+      String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
+    }
 
-    // Xoá sản phẩm chính
-    productDB.run(`DELETE FROM products WHERE id = ?`, [productId], (err) => {
-      if (err) return res.send("Lỗi xóa sản phẩm");
-      res.redirect('/admin/products');
+    // Try to unlink files (best-effort)
+    filesToRemove.forEach(f => {
+      try {
+        const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
+        if (fs.existsSync(candidate)) {
+          fs.unlinkSync(candidate);
+          console.log('Removed file:', candidate);
+        }
+      } catch (ue) {
+        console.error('Failed to remove file', f, ue);
+      }
+    });
+
+    // Now remove variants then product
+    productDB.serialize(() => {
+      productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
+        if (err) console.error('Error deleting variants:', err);
+        productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
+          if (err2) {
+            console.error('Error deleting product:', err2);
+            return res.status(500).send('Error deleting product');
+          }
+          console.log('Deleted product', id);
+          res.redirect('/admin/products');
+        });
+      });
     });
   });
 });
 
-
-// ==================================
-// 14. ADMIN — QUẢN LÝ ĐƠN HÀNG
-// ==================================
-app.get('/admin/orders', isAdmin, (req, res) => {
-  res.render('admin/orders', { title: 'Quản lý đơn hàng', orders });
-});
-
-app.post('/admin/orders/update/:id', isAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const { status } = req.body;
-
-  const order = orders.find((o) => o.id === id);
-  if (!order) return res.send('Không tìm thấy đơn hàng');
-
-  order.status = status;
-  order.tracking.push('Cập nhật: ' + status);
-
-  saveJSON(ordersPath, orders);
-  res.redirect('/admin/orders');
-});
 
 // ==================================
 // 15. ADMIN — QUẢN LÝ TRẢ HÀNG
@@ -849,9 +1005,235 @@ app.post('/admin/returns/approve/:id', isAdmin, (req, res) => {
   res.redirect('/admin/returns');
 });
 
+// DEBUG: allow local non-auth deletion when in development for testing only
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/__debug__/admin/delete/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).send('Invalid id');
+    console.log('DEBUG delete invoked for id', id);
+
+    productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
+      if (gErr) {
+        console.error('Error querying product before debug-delete:', gErr);
+        return res.status(500).send('DB error');
+      }
+      if (!row) return res.status(404).send('Product not found');
+
+      const filesToRemove = [];
+      if (row.image) filesToRemove.push(row.image);
+      if (row.images) {
+        String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
+      }
+
+      filesToRemove.forEach(f => {
+        try {
+          const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
+          if (fs.existsSync(candidate)) fs.unlinkSync(candidate);
+        } catch (ue) { console.error('Unlink error (debug):', ue); }
+      });
+
+      productDB.serialize(() => {
+        productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
+          if (err) console.error('Error deleting variants (debug):', err);
+          productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
+            if (err2) {
+              console.error('Error deleting product (debug):', err2);
+              return res.status(500).send('Error deleting product');
+            }
+            console.log('DEBUG deleted product', id);
+            res.send('OK');
+          });
+        });
+      });
+    });
+  });
+}
+
+// Dev-only: list registered routes for debugging
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/__debug__/routes', (req, res) => {
+    const routes = [];
+    app._router.stack.forEach(mw => {
+      if (mw.route && mw.route.path) {
+        const methods = Object.keys(mw.route.methods).join(',').toUpperCase();
+        routes.push({ path: mw.route.path, methods });
+      }
+    });
+    res.json({ routes });
+  });
+}
+
+// Dev-only: add product via JSON (bypass isAdmin) for testing add flow
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/__debug__/admin/add', express.json(), (req, res) => {
+    const { name, price=0, salePrice=0, shortDesc='', description='', category='', status='normal', colors=[], images=[] , variants=[] } = req.body || {};
+
+    if (!name) return res.status(400).send('Missing name');
+
+    const createdAt = new Date().toISOString();
+    const imageStr = Array.isArray(images) ? images.join(',') : (images || '');
+    const colorsStr = Array.isArray(colors) ? colors.join(',') : (colors || '');
+
+    productDB.get('SELECT id FROM products WHERE name = ?', [name], (derr, drow) => {
+      if (derr) return res.status(500).send('DB ERR');
+      if (drow) return res.status(409).send('Duplicate');
+
+      productDB.run(`INSERT INTO products (name, shortDescription, description, price, salePrice, category, status, createdAt, colors, image, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, shortDesc, description, Number(price), Number(salePrice), category, status, createdAt, colorsStr, images[0] || null, imageStr], function(err) {
+          if (err) return res.status(500).send('INSERT ERR');
+          const productId = this.lastID;
+
+          const sqlVariant = `INSERT INTO product_quantity (product_id, color, size, quantity) VALUES (?, ?, ?, ?)`;
+          (variants || []).forEach(v => {
+            const color = v.color || '';
+            const size = v.size || '';
+            const qty = Number(v.quantity || 0);
+            productDB.run(sqlVariant, [productId, color, size, qty], (ve) => { if (ve) console.error('variant insert err', ve); });
+          });
+
+          res.json({ ok: true, id: productId });
+        });
+    });
+  });
+}
+
 // ==================================
 // 16. START SERVER
 // ==================================
-app.listen(PORT, () => {
-  console.log(`Server chạy tại http://localhost:${PORT}`);
+console.log('REGISTER DELETE ROUTE');
+app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
+  if (!id) return res.status(400).send('Invalid id');
+
+  // Verify product exists and remove any uploaded image files
+  productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
+    if (gErr) {
+      console.error('Error querying product before delete:', gErr);
+      return res.status(500).send('DB error');
+    }
+    if (!row) return res.status(404).send('Product not found');
+
+    const filesToRemove = [];
+    if (row.image) filesToRemove.push(row.image);
+    if (row.images) {
+      String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
+    }
+
+    // Try to unlink files (best-effort)
+    filesToRemove.forEach(f => {
+      try {
+        const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
+        if (fs.existsSync(candidate)) {
+          fs.unlinkSync(candidate);
+          console.log('Removed file:', candidate);
+        }
+      } catch (ue) {
+        console.error('Failed to remove file', f, ue);
+      }
+    });
+
+    // Now remove variants then product
+    productDB.serialize(() => {
+      productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
+        if (err) console.error('Error deleting variants:', err);
+        productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
+          if (err2) {
+            console.error('Error deleting product:', err2);
+            return res.status(500).send('Error deleting product');
+          }
+          console.log('Deleted product', id);
+          res.redirect('/admin/products');
+        });
+      });
+    });
+  });
 });
+
+
+// ==================================
+// 15. ADMIN — QUẢN LÝ TRẢ HÀNG
+// ==================================
+app.get('/admin/returns', isAdmin, (req, res) => {
+  res.render('admin/returns', {
+    title: 'Yêu cầu trả hàng',
+    returns: returnsList
+  });
+});
+
+app.post('/admin/returns/approve/:id', isAdmin, (req, res) => {
+  const id = Number(req.params.id);
+
+  const r = returnsList.find((x) => x.id === id);
+  r.status = 'approved';
+
+  saveJSON(returnsPath, returnsList);
+  res.redirect('/admin/returns');
+});
+
+// DEBUG: allow local non-auth deletion when in development for testing only
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/__debug__/admin/delete/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).send('Invalid id');
+    console.log('DEBUG delete invoked for id', id);
+
+    productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
+      if (gErr) {
+        console.error('Error querying product before debug-delete:', gErr);
+        return res.status(500).send('DB error');
+      }
+      if (!row) return res.status(404).send('Product not found');
+
+      const filesToRemove = [];
+      if (row.image) filesToRemove.push(row.image);
+      if (row.images) {
+        String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
+      }
+
+      filesToRemove.forEach(f => {
+        try {
+          const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
+          if (fs.existsSync(candidate)) fs.unlinkSync(candidate);
+        } catch (ue) { console.error('Unlink error (debug):', ue); }
+      });
+
+      productDB.serialize(() => {
+        productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
+          if (err) console.error('Error deleting variants (debug):', err);
+          productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
+            if (err2) {
+              console.error('Error deleting product (debug):', err2);
+              return res.status(500).send('Error deleting product');
+            }
+            console.log('DEBUG deleted product', id);
+            res.send('OK');
+          });
+        });
+      });
+    });
+  });
+}
+
+// Dev-only: list registered routes for debugging
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/__debug__/routes', (req, res) => {
+    const routes = [];
+    app._router.stack.forEach(mw => {
+      if (mw.route && mw.route.path) {
+        const methods = Object.keys(mw.route.methods).join(',').toUpperCase();
+        routes.push({ path: mw.route.path, methods });
+      }
+    });
+    res.json({ routes });
+  });
+}
+
+// Note: listening is performed by start_server.js in development.
+// Remove direct app.listen here to avoid double-listen when required.
+
+// server listening is handled by `start_server.js` in development
+
+// Small balancing closers (fix module parse if any wrapper left open)
+});
+

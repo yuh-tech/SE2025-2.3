@@ -18,31 +18,29 @@
 
     <div class="row">
       <label>Giá sale</label>
-      <input type="number" name="salePrice" placeholder="0 nếu không sale" />
+      <input type="number" id="sale-price" name="salePrice" placeholder="0 nếu không sale" />
     </div>
 
     <div class="row">
-      <label>Short mô tả</label>
+      <label>Mô tả ngắn</label>
       <input type="text" name="shortDesc" maxlength="200" required />
     </div>
 
     <div class="row">
       <label>Ảnh sản phẩm</label>
-      <input type="file" name="images" accept="image/*" multiple required />
+      <input type="file" name="images[]" multiple />
       <small>Bạn có thể chọn nhiều ảnh. Ảnh đầu tiên sẽ là ảnh chính.</small>
     </div>
-
 
     <div class="row">
       <label>Danh mục</label>
       <input type="text" name="category" required />
     </div>
 
-    <!-- COLOR - SIZE - QUANTITY -->
+    <!-- VARIANTS -->
     <div class="row">
       <label>Thêm màu + size + SL</label>
       <div id="variant-wrapper"></div>
-
       <button type="button" class="add-variant-btn">+ Thêm biến thể</button>
     </div>
 
@@ -82,131 +80,135 @@
           <th>Xóa</th>
         </tr>
       </thead>
-
       <tbody>
-        <% products.forEach(p => { 
-             const imgs = p.images ? p.images.split(',') : [];
-        %>
-        <tr>
-
-          <!-- Ảnh đại diện -->
-          <td>
-            <% if (imgs.length > 0) { %>
-              <img src="/uploads/<%= imgs[0] %>" class="product-img" />
-              <% if (imgs.length > 1) { %>
-                <button onclick="showImages('<%= imgs.join(',') %>')">+Ảnh</button>
+        <% products.forEach(p => { %>
+          <tr>
+            <!-- ẢNH -->
+            <td>
+              <% const imgsRaw = p.images || p.image || ''; const imgs = imgsRaw ? String(imgsRaw).split(',') : []; %>
+              <% if (imgs.length > 0 && imgs[0]) { %>
+                <% const first = imgs[0].trim(); const src = first.startsWith('/') ? first : ('/uploads/' + first); %>
+                <img src="<%= src %>" class="product-img" />
+                <% if (imgs.length > 1) { %>
+                  <button type="button" class="more-img-btn" onclick="showImages('<%= imgs.join(',') %>')">+<%= imgs.length - 1 %></button>
+                <% } %>
+              <% } else { %>
+                —
               <% } %>
-            <% } else { %>
-              Không có ảnh
-            <% } %>
-          </td>
+            </td>
 
-          <td><%= p.name %></td>
+            <td><%= p.name %></td>
 
-          <td><%= p.shortDesc %></td>
+            <td><%= p.shortDescription %></td>
 
-          <!-- Giá -->
-          <td><%= p.price.toLocaleString('vi-VN') %>₫</td>
+            <td>
+              <%= Number(p.price).toLocaleString('vi-VN') %> ₫
+            </td>
 
-          <!-- Sale -->
-          <td>
-            <% if (p.salePrice > 0) { %>
-              <span style="color:green; font-weight:bold;">✓ <%= p.salePrice.toLocaleString('vi-VN') %> ₫</span>
-            <% } else { %>
-              <span style="color:red; font-weight:bold;">✗</span>
-            <% } %>
-          </td>
-
-
-          <td><%= p.category %></td>
-
-          <!-- Colors -->
-          <td>
-            <% if (p.variants) {
-                 const colors = [...new Set(p.variants.split(',').map(v => v.split(':')[0]))];
-            %>
-              <%= colors.join(', ') %>
-            <% } else { %>Không có<% } %>
-          </td>
-
-          <!-- FULL VARIANT -->
-          <td>
-            <% if (p.variants) { 
-                 p.variants.split(',').forEach(v => {
-                   const [color, size, qty] = v.split(':');
-            %>
-              <div><strong><%= color %></strong> — <%= size %> : <%= qty %> cái</div>
-            <% }) } else { %>
-              Không có
-            <% } %>
-          </td>
-
-          <!-- Status -->
-          <td>
-            <span class="status <%= p.status %>">
-              <% if (p.status === 'normal') { %>Bình thường
-              <% } else if (p.status === 'sale') { %><span style="color:red">Sale</span>
-              <% } else { %><span style="opacity:0.5">Ẩn</span>
+            <!-- SALE -->
+            <td>
+              <% if (Number(p.salePrice) > 0) { %>
+                <span style="color:green;font-weight:bold;">
+                  ✓ <%= Number(p.salePrice).toLocaleString('vi-VN') %> ₫
+                </span>
+              <% } else { %>
+                <span style="color:red;font-weight:bold;">✗</span>
               <% } %>
-            </span>
-          </td>
+            </td>
 
-          <!-- DELETE -->
-          <td>
-            <form method="POST" action="/admin/products/delete/<%= p.id %>"
-              onsubmit="return confirm('Xóa sản phẩm này?')">
-              <button class="delete-btn">Xóa</button>
-            </form>
-          </td>
+            <td><%= p.category %></td>
 
-        </tr>
+            <!-- COLORS -->
+            <td>
+              <% if (p.colors.length > 0) { %>
+                <%= p.colors.join(", ") %>
+              <% } else { %>
+                —
+              <% } %>
+            </td>
+
+            <!-- VARIANTS -->
+            <td>
+              <% if (p.variants.length > 0) { %>
+                <% p.variants.forEach(v => { %>
+                  <div>
+                    <strong><%= v.color %></strong>
+                    - Size <%= v.size %>
+                    - SL: <%= v.quantity %>
+                  </div>
+                <% }) %>
+              <% } else { %>
+                —
+              <% } %>
+            </td>
+
+            <!-- STATUS -->
+            <td>
+              <% const st = (p.status || '').toString().trim().toLowerCase(); %>
+              <% if (st === 'normal') { %>
+                <span style="color:green;">Bình thường</span>
+              <% } else if (st === 'sale') { %>
+                <span style="color:red;">Sale</span>
+              <% } else if (st === 'hidden' || st === 'hide') { %>
+                <span style="opacity:0.5;">Ẩn</span>
+              <% } else { %>
+                <span><%= p.status %></span>
+              <% } %>
+            </td>
+
+            <!-- DELETE -->
+            <td>
+              <form method="POST" action="/admin/products/delete/<%= p.id %>"
+                    onsubmit="return confirm('Xóa sản phẩm này?')">
+                <button type="submit" class="delete-btn">Xóa</button>
+              </form>
+            </td>
+          </tr>
         <% }) %>
       </tbody>
     </table>
   </div>
 </div>
 
+
 <script>
-  // Popup xem ảnh phụ
   function showImages(list) {
-    alert("Các ảnh:\n" + list.split(',').join('\n'));
+    alert("Danh sách ảnh:\n" + list.split(',').join('\n'));
   }
 
-  // THÊM 1 DÒNG VARIANT
-  document.querySelector(".add-variant-btn").onclick = () => {
+  function addVariantRow(defaultRow = false) {
     const wrapper = document.getElementById("variant-wrapper");
 
     const row = document.createElement("div");
     row.className = "variant-row";
 
     row.innerHTML = `
-      <input type="text" name="variant_color[]" placeholder="Màu">
-      <input type="text" name="variant_size[]" placeholder="Size">
-      <input type="number" name="variant_quantity[]" placeholder="SL">
+      <input type="text" name="variant_color[]" placeholder="Màu" ${defaultRow ? 'required' : ''}>
+      <input type="text" name="variant_size[]" placeholder="Size" ${defaultRow ? 'required' : ''}>
+      <input type="number" name="variant_quantity[]" placeholder="SL" ${defaultRow ? 'required' : ''}>
       <button type="button" class="remove-variant">×</button>
     `;
 
     row.querySelector(".remove-variant").onclick = () => row.remove();
-
     wrapper.appendChild(row);
-  };
-
-document.getElementById("sale-price").addEventListener("input", function() {
-  const sale = Number(this.value);
-  const statusSelect = document.getElementById("status-select");
-
-  if (sale === 0) {
-    statusSelect.value = "sale";
-    statusSelect.disabled = true;
-  } else {
-    statusSelect.disabled = false;
-    if (statusSelect.value === "sale") {
-      statusSelect.value = "normal";
-    }
   }
-});
 
+  document.querySelector(".add-variant-btn").onclick = () => addVariantRow();
+  addVariantRow(true);
 
+  document.addEventListener("DOMContentLoaded", () => {
+    const saleInput = document.getElementById("sale-price");
+    const statusSelect = document.getElementById("status-select");
+
+    function updateStatus() {
+      const sale = Number(saleInput.value);
+      statusSelect.value = sale > 0 ? "sale" : "normal";
+      statusSelect.disabled = sale > 0;
+    }
+
+    saleInput.addEventListener("input", updateStatus);
+    updateStatus();
+  });
 </script>
 
 <style>
@@ -216,15 +218,36 @@ document.getElementById("sale-price").addEventListener("input", function() {
     border-radius: 8px;
     object-fit: cover;
   }
-
-  @media (max-width: 768px) {
-    .admin-table {
-      font-size: 12px;
-    }
-    .product-img {
-      width: 45px;
-      height: 45px;
-    }
+  .more-img-btn {
+    background: #3498db;
+    border: none;
+    color: white;
+    padding: 3px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-top: 5px;
+  }
+  .sale-yes { color: green; font-weight: bold; }
+  .sale-no { color: red; font-weight: bold; }
+  .variant-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .variant-row input {
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  .remove-variant {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
   }
 </style>
 
