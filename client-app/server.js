@@ -8,6 +8,33 @@ const slugify = require('slugify');
 const fs = require('fs');
 const crypto = require('crypto');
 
+const { promisify } = require('util');
+
+const express = require('express');
+const session = require('express-session');
+
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./database/customers.db');
+const orderDB = new sqlite3.Database('./database/orders.db'); // tạo DB orders
+const productDB = new sqlite3.Database('./database/products.db', sqlite3.OPEN_READWRITE, (err) => {
+  if (err) console.error('Cannot open products.db:', err.message);
+  else console.log('Opened products.db successfully');
+})
+
+productDB.serialize(() => {
+  productDB.run("ATTACH DATABASE './database/orders.db' AS ordersDB");
+  productDB.run("ATTACH DATABASE './database/customers.db' AS customersDB");
+});
+
+const dbGet = promisify(productDB.get.bind(productDB));
+const dbAll = promisify(productDB.all.bind(productDB));
+
+
+const dbCustomerGet = promisify(db.get.bind(db));           // customers.db
+const dbOrderGet = promisify(orderDB.get.bind(orderDB));    // orders.db
+const dbOrderAll = promisify(orderDB.all.bind(orderDB));
+
+
 const multer = require('multer');
 
 const storage = multer.diskStorage({
@@ -25,12 +52,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-const express = require('express');
-const session = require('express-session');
 
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./database/customers.db');
-const productDB = new sqlite3.Database('./database/products.db');
 
 
 const app = express();
@@ -139,6 +161,54 @@ productDB.serialize(() => {
     )
   `);
 
+  // Orders
+  productDB.run(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      status TEXT DEFAULT 'pending',
+      FOREIGN KEY(customer_id) REFERENCES customers(id)
+    )
+  `);
+
+
+   // Order items
+  productDB.run(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER,
+      product_id INTEGER,
+      quantity INTEGER,
+      price INTEGER,
+      FOREIGN KEY(order_id) REFERENCES orders(id),
+      FOREIGN KEY(product_id) REFERENCES products(id)
+    )
+  `);
+
+});
+
+orderDB.serialize(() => {
+  orderDB.run(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER,
+      created_at TEXT,
+      FOREIGN KEY(customer_id) REFERENCES customers(id)
+    )
+  `);
+
+  orderDB.run(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER,
+      product_id INTEGER,
+      quantity INTEGER,
+      price INTEGER,
+      FOREIGN KEY(order_id) REFERENCES orders(id),
+      FOREIGN KEY(product_id) REFERENCES products(id)
+    )
+  `);
 });
 
 console.log('checkpoint B - productDB schema ensured');
@@ -740,16 +810,83 @@ app.post('/orders/:id/return', (req, res) => {
 // ==================================
 // 12. ADMIN — DASHBOARD
 // ==================================
-app.get('/admin', isAdmin, (req, res) => {
-  res.render('admin/dashboard', {
-    title: 'Admin Dashboard',
-    productsCount: allProducts.length,
-    ordersCount: orders.length,
-    returnsCount: returnsList.length
-  });
+app.get('/admin', isAdmin, async (req, res) => {
+  try {
+    // 1️⃣ Tổng sản phẩm
+    const productsRow = await dbGet('SELECT COUNT(*) AS count FROM products');
+    const productsCount = productsRow.count;
+
+    // 2️⃣ Tổng khách hàng
+    const customersRow = await dbGet('SELECT COUNT(*) AS count FROM customersDB.customers');
+    const customersCount = customersRow.count;
+
+    // 3️⃣ Tổng đơn hàng
+    const ordersRow = await dbGet('SELECT COUNT(*) AS count FROM ordersDB.orders');
+    const ordersCount = ordersRow.count;
+
+    // 4️⃣ Tổng doanh thu
+    const revenueRow = await dbGet(`
+      SELECT SUM(oi.quantity * oi.price) AS revenue
+      FROM ordersDB.order_items oi
+    `);
+    const totalRevenue = revenueRow.revenue || 0;
+
+    // 5️⃣ Đơn hôm nay
+    const today = new Date().toISOString().split('T')[0];
+    const ordersTodayRow = await dbGet(`
+      SELECT COUNT(*) AS count
+      FROM ordersDB.orders
+      WHERE date(created_at) = ?
+    `, [today]);
+    const ordersToday = ordersTodayRow.count;
+
+    // 6️⃣ Sản phẩm bán hôm nay (kèm khách hàng)
+    const salesToday = await dbAll(`
+      SELECT p.name AS product_name, c.displayName AS customer_name, SUM(oi.quantity) AS sold
+      FROM ordersDB.order_items oi
+      JOIN products p ON oi.product_id = p.id
+      JOIN ordersDB.orders o ON oi.order_id = o.id
+      JOIN customersDB.customers c ON o.customer_id = c.id
+      WHERE date(o.created_at) = ?
+      GROUP BY oi.product_id, o.customer_id
+    `, [today]);
+
+    // 7️⃣ Doanh thu 7 ngày gần nhất
+    const revenueWeek = await dbAll(`
+      SELECT date(o.created_at) AS day, SUM(oi.quantity * oi.price) AS revenue
+      FROM ordersDB.orders o
+      JOIN ordersDB.order_items oi ON o.id = oi.order_id
+      WHERE date(o.created_at) >= date('now','-6 days')
+      GROUP BY date(o.created_at)
+      ORDER BY date(o.created_at)
+    `);
+
+    // Render dashboard
+    res.render('admin/dashboard', {
+      title: 'Admin Dashboard',
+      productsCount,
+      customersCount,
+      ordersCount,
+      totalRevenue,
+      ordersToday,
+      salesToday,
+      revenueWeek
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.render('admin/dashboard', {
+      title: 'Admin Dashboard',
+      productsCount: 0,
+      customersCount: 0,
+      ordersCount: 0,
+      totalRevenue: 0,
+      ordersToday: 0,
+      salesToday: [],
+      revenueWeek: []
+    });
+  }
 });
-
-
 // ==================================
 // 13. ADMIN — QUẢN LÝ SẢN PHẨM
 // ==================================
