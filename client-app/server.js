@@ -45,10 +45,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
   session({
+    // Đặt tên cookie riêng để không đè với oauth-server (cùng domain localhost)
+    name: 'client_app.sid',
     secret: process.env.SESSION_SECRET || 'secret-key-very-hard-to-guess',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false }
+    cookie: {
+      secure: false,   // dev http
+      httpOnly: true,
+      sameSite: 'lax', // cho phép gửi cookie khi redirect top-level từ oauth server
+    }
   })
 );
 
@@ -81,9 +87,9 @@ console.log('checkpoint A - middleware configured');
 // ==================================
 const OAUTH_CONFIG = {
   issuer: process.env.OAUTH_ISSUER || 'http://localhost:3000',
-  client_id: process.env.OAUTH_CLIENT_ID || 'my_app',
+  client_id: process.env.OAUTH_CLIENT_ID || 'Sunshine Boutique App',
   client_secret: process.env.OAUTH_CLIENT_SECRET || 'demo-client-secret',
-  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:8080/callback',
+  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:3001/callback',
   scope: 'openid profile email offline_access',
   authorization_endpoint: '/authorize',
   token_endpoint: '/token',
@@ -319,8 +325,18 @@ app.get('/auth/oauth', (req, res) => {
   authUrl.searchParams.set('code_challenge_method', 'S256');
   
   console.log('🔐 Redirecting to OAuth Server:', authUrl.toString());
-  
-  res.redirect(authUrl.toString());
+
+  // Đảm bảo session được lưu trước khi redirect (tránh mất state)
+  req.session.save((err) => {
+    if (err) {
+      console.error('❌ Failed to save session before redirect:', err);
+      return res.render('error', {
+        title: 'Session Error',
+        message: 'Cannot initiate OAuth flow, session save failed'
+      });
+    }
+    res.redirect(authUrl.toString());
+  });
 });
 
 /**
@@ -351,7 +367,7 @@ app.get('/callback', async (req, res) => {
   const codeVerifier = req.session.code_verifier;
   
   if (!code || !codeVerifier) {
-    console.error('❌ Missing code or code_verifier');
+    console.error('❌ Missing code or code_verifier', { code, hasVerifier: !!codeVerifier });
     return res.render('error', { 
       title: 'OAuth Error',
       message: 'Missing authorization code or PKCE verifier' 
