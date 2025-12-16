@@ -70,13 +70,14 @@
         <tr>
           <th>Ảnh</th>
           <th>Tên</th>
-          <th>Mô tả ngắn</th>
+          <!-- <th>Mô tả ngắn</th> -->
           <th>Giá</th>
-          <th>Sale</th>
+          <th>Giá sale</th>
           <th>Danh mục</th>
-          <th>Colors</th>
-          <th>Variants</th>
+          <th>Màu sắc</th>
+          <th>Số lượng</th>
           <th>Trạng thái</th>
+          <th>Chỉnh sửa</th>
           <th>Xóa</th>
         </tr>
       </thead>
@@ -99,7 +100,7 @@
 
             <td><%= p.name %></td>
 
-            <td><%= p.shortDescription %></td>
+            <!-- shortDescription column removed per request -->
 
             <td>
               <%= Number(p.price).toLocaleString('vi-VN') %> ₫
@@ -154,6 +155,13 @@
               <% } else { %>
                 <span><%= p.status %></span>
               <% } %>
+            </td>
+
+            <!-- EDIT -->
+            <td>
+              <form action="/admin/products/edit/<%= p.id %>" method="get" style="display:inline">
+                <button type="submit" class="edit-btn">Sửa</button>
+              </form>
             </td>
 
             <!-- DELETE -->
@@ -249,6 +257,20 @@
     border-radius: 50%;
     cursor: pointer;
   }
+  /* Edit/Delete button styling: same size, edit is blue */
+  .edit-btn, .delete-btn {
+    display: inline-block;
+    padding: 6px 10px;
+    min-width: 72px;
+    text-align: center;
+    border-radius: 6px;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .edit-btn { background: #2980b9; }
+  .delete-btn { background: #e74c3c; }
 </style>
 
 <%- include('../partials/footer') %>

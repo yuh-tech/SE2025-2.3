@@ -1,0 +1,132 @@
+<%- include('../partials/header') %>
+<div class="container admin-edit">
+  <h1><%= title %></h1>
+
+  <form action="/admin/products/edit/<%= product.id %>" method="post" enctype="multipart/form-data">
+    <div>
+      <label>Tên sản phẩm</label>
+      <input type="text" name="name" value="<%= product.name %>" required />
+    </div>
+
+    <div>
+      <label>Giá</label>
+      <input type="number" name="price" value="<%= product.price %>" />
+    </div>
+
+    <div>
+      <label>Giá sale</label>
+      <input type="number" name="salePrice" value="<%= product.salePrice %>" />
+    </div>
+
+    <div>
+      <label>Mô tả ngắn</label>
+      <input type="text" name="shortDesc" value="<%= product.shortDescription %>" />
+    </div>
+
+    <div>
+      <label>Danh mục</label>
+      <input type="text" name="category" value="<%= product.category %>" />
+    </div>
+
+    <div>
+      <label>Trạng thái</label>
+      <select name="status">
+        <option value="normal" <%= product.status === 'normal' ? 'selected' : '' %>>Normal</option>
+        <option value="sale" <%= product.status === 'sale' ? 'selected' : '' %>>Sale</option>
+        <option value="hidden" <%= product.status === 'hidden' ? 'selected' : '' %>>Hidden</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Ảnh hiện có</label>
+      <div class="existing-images">
+        <% if (product.images && product.images.length) { %>
+          <% product.images.forEach(function(img){ %>
+            <div class="thumb">
+              <img src="<%= img %>" alt="image" style="max-width:120px;display:block;padding:4px;border:1px solid #ddd;margin:4px;" />
+            </div>
+          <% }) %>
+        <% } else if (product.image) { %>
+          <img src="<%= product.image %>" style="max-width:120px;" />
+        <% } else { %>
+          <div>(Không có ảnh)</div>
+        <% } %>
+      </div>
+    </div>
+
+    <div>
+      <label>Thêm/Thay ảnh (multiple)</label>
+      <input type="file" name="images[]" multiple />
+    </div>
+
+    <div>
+      <label>Mô tả dài</label>
+      <textarea name="description" rows="6"><%= product.description %></textarea>
+    </div>
+
+    <h3>Variants</h3>
+    <table id="variants-table">
+      <thead>
+        <tr><th>Color</th><th>Size</th><th>Quantity</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% if (variants && variants.length) { %>
+          <% variants.forEach(function(v, idx){ %>
+            <tr>
+              <td><input name="variant_color[]" value="<%= v.color %>" /></td>
+              <td><input name="variant_size[]" value="<%= v.size %>" /></td>
+              <td><input name="variant_quantity[]" value="<%= v.quantity %>" type="number" /></td>
+              <td><button type="button" class="remove-variant">Xóa</button></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td><input name="variant_color[]" /></td>
+            <td><input name="variant_size[]" /></td>
+            <td><input name="variant_quantity[]" type="number" /></td>
+            <td><button type="button" class="remove-variant">Xóa</button></td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+    <button type="button" id="add-variant">Thêm variant</button>
+
+    <div style="margin-top:16px">
+      <button type="submit" class="save-btn">Lưu</button>
+      <a href="/admin/products" class="cancel-btn">Hủy</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById('add-variant').addEventListener('click', function(){
+    const tbody = document.querySelector('#variants-table tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><input name="variant_color[]" /></td><td><input name="variant_size[]" /></td><td><input name="variant_quantity[]" type="number" /></td><td><button type="button" class="remove-variant">Xóa</button></td>';
+    tbody.appendChild(tr);
+  });
+
+  document.addEventListener('click', function(e){
+    if (e.target && e.target.classList.contains('remove-variant')) {
+      const tr = e.target.closest('tr');
+      if (tr) tr.remove();
+    }
+  });
+</script>
+
+<style>
+  .admin-edit { max-width: 900px; margin: 20px auto; }
+  .admin-edit label { display:block; margin-bottom:6px; font-weight:600; }
+  .admin-edit input[type="text"], .admin-edit input[type="number"], .admin-edit textarea, .admin-edit select {
+    width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; margin-bottom:10px;
+  }
+  #variants-table { width:100%; border-collapse:collapse; margin-bottom:10px }
+  #variants-table td input { width:100%; }
+  .save-btn, .cancel-btn {
+    display:inline-block; padding:8px 12px; border-radius:6px; text-decoration:none; color:#fff; font-weight:600; margin-right:8px;
+  }
+  .save-btn { background:#27ae60; border:none; }
+  .cancel-btn { background:#7f8c8d; }
+</style>
+
+<%- include('../partials/footer') %>

@@ -753,6 +753,172 @@ app.get('/admin', isAdmin, (req, res) => {
 // ==================================
 // 13. ADMIN — QUẢN LÝ SẢN PHẨM
 // ==================================
+
+// ========== EDIT PRODUCT ROUTES ==========
+
+// console.log('>>> REGISTER EDIT PRODUCT ROUTE');
+app.post('/admin/products/edit/:id', isAdmin, upload.array('images[]', 10), (req, res) => {
+  console.log('EDIT PAGE OPEN', req.params.id);
+  // res.send('OK EDIT');
+  const id = Number(req.params.id);
+  if (!id) return res.redirect('/admin/products');
+
+  const { name, price, salePrice, shortDesc, description, category, status } = req.body;
+
+  // Normalize variant fields
+  function normalizeField(keyBase) {
+    const candidates = [keyBase + '[]', keyBase, keyBase.replace(/\[\]$/, '')];
+    for (const k of candidates) {
+      if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+        const v = req.body[k];
+        if (Array.isArray(v)) return v;
+        if (typeof v === 'string') return [v];
+      }
+    }
+    return [];
+  }
+
+  const colors = normalizeField('variant_color');
+  const sizes = normalizeField('variant_size');
+  const quantities = normalizeField('variant_quantity');
+
+  // Process uploaded files (replace images if new uploaded, otherwise keep existing)
+  const files = req.files || [];
+  const uploadedPaths = files.map(f => f.path.replace(/\\/g, '/').replace(/^.*public/, ''));
+
+  // Fetch current product to determine current images
+  productDB.get('SELECT images, image FROM products WHERE id = ?', [id], (gErr, row) => {
+    if (gErr) return res.redirect('/admin/products');
+
+    let finalImages = [];
+    let mainImage = null;
+
+    if (uploadedPaths.length > 0) {
+      finalImages = uploadedPaths;
+      mainImage = uploadedPaths[0] || null;
+    } else if (row) {
+      finalImages = row.images ? String(row.images).split(',') : [];
+      mainImage = row.image || (finalImages[0] || null);
+    }
+
+    const colorsStr = Array.isArray(colors) ? colors.join(',') : (colors || '');
+
+    productDB.run(`UPDATE products SET name = ?, shortDescription = ?, description = ?, price = ?, salePrice = ?, category = ?, status = ?, colors = ?, image = ?, images = ? WHERE id = ?`,
+      [
+        name,
+        shortDesc,
+        description,
+        Number(price || 0),
+        Number(salePrice || 0),
+        category,
+        status || 'normal',
+        colorsStr,
+        mainImage,
+        finalImages.join(','),
+        id
+      ], function (uErr) {
+        if (uErr) {
+          console.error('Error updating product:', uErr);
+          return res.redirect('/admin/products');
+        }
+
+        // Replace variants: delete existing, insert provided
+        productDB.serialize(() => {
+          productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (dErr) => {
+            if (dErr) console.error('Error deleting old variants:', dErr);
+
+            const sqlVariant = `INSERT INTO product_quantity (product_id, color, size, quantity) VALUES (?, ?, ?, ?)`;
+            for (let i = 0; i < colors.length; i++) {
+              const color = colors[i] || '';
+              const size = sizes[i] || '';
+              const qty = Number(quantities[i] || 0);
+              productDB.run(sqlVariant, [id, color, size, qty], (verr) => {
+                if (verr) console.error('Variant insert error (edit):', verr);
+              });
+            }
+
+            return res.redirect('/admin/products');
+          });
+        });
+      }
+    );
+  });
+});
+
+app.get('/admin/products/edit/:id', isAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.redirect('/admin/products');
+
+  productDB.get('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
+    if (err || !product) return res.redirect('/admin/products');
+
+    product.images = product.images ? String(product.images).split(',') : [];
+    product.colors = product.colors ? String(product.colors).split(',') : [];
+
+    productDB.all('SELECT * FROM product_quantity WHERE product_id = ?', [id], (vErr, variants) => {
+      if (vErr) variants = [];
+      res.render('admin/edit-product', {
+        title: 'Sửa sản phẩm',
+        product,
+        variants
+      });
+    });
+  });
+});
+
+// ========== DELETE PRODUCT ROUTE ==========
+console.log('REGISTER DELETE ROUTE');
+app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
+  if (!id) return res.status(400).send('Invalid id');
+
+  // Verify product exists and remove any uploaded image files
+  productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
+    if (gErr) {
+      console.error('Error querying product before delete:', gErr);
+      return res.status(500).send('DB error');
+    }
+    if (!row) return res.status(404).send('Product not found');
+
+    const filesToRemove = [];
+    if (row.image) filesToRemove.push(row.image);
+    if (row.images) {
+      String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
+    }
+
+    // Try to unlink files (best-effort)
+    filesToRemove.forEach(f => {
+      try {
+        const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
+        if (fs.existsSync(candidate)) {
+          fs.unlinkSync(candidate);
+          console.log('Removed file:', candidate);
+        }
+      } catch (ue) {
+        console.error('Failed to remove file', f, ue);
+      }
+    });
+
+    // Now remove variants then product
+    productDB.serialize(() => {
+      productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
+        if (err) console.error('Error deleting variants:', err);
+        productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
+          if (err2) {
+            console.error('Error deleting product:', err2);
+            return res.status(500).send('Error deleting product');
+          }
+          console.log('Deleted product', id);
+          res.redirect('/admin/products');
+        });
+      });
+    });
+  });
+});
+
+
+// ========== LIST PRODUCTS ROUTE ==========
 app.get('/admin/products', isAdmin, (req, res) => {
   const sql = `
     SELECT 
@@ -846,7 +1012,10 @@ app.post(
     // Xử lý file đã upload: lưu đường dẫn relative (từ /public)
     const files = req.files || [];
     const imagePaths = files.map(f => f.path.replace(/\\/g, '/').replace(/^.*public/, ''));
-    const mainImage = imagePaths[0] || null;
+    const mainImage = imagePaths.length > 0
+    ? imagePaths[0]
+    : null;
+
 
     // Normalize variant fields: accept variant_color[], variant_color, or variant_color[] as keys
     function normalizeField(keyBase) {
@@ -934,55 +1103,55 @@ console.log('checkpoint E - admin products add route defined');
 
 
 // DELETE product route (remove variants then product)
-console.log('REGISTER DELETE ROUTE');
-app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
-  if (!id) return res.status(400).send('Invalid id');
+// console.log('REGISTER DELETE ROUTE');
+// app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
+//   const id = Number(req.params.id);
+//   console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
+//   if (!id) return res.status(400).send('Invalid id');
 
-  // Verify product exists and remove any uploaded image files
-  productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
-    if (gErr) {
-      console.error('Error querying product before delete:', gErr);
-      return res.status(500).send('DB error');
-    }
-    if (!row) return res.status(404).send('Product not found');
+//   // Verify product exists and remove any uploaded image files
+//   productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
+//     if (gErr) {
+//       console.error('Error querying product before delete:', gErr);
+//       return res.status(500).send('DB error');
+//     }
+//     if (!row) return res.status(404).send('Product not found');
 
-    const filesToRemove = [];
-    if (row.image) filesToRemove.push(row.image);
-    if (row.images) {
-      String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
-    }
+//     const filesToRemove = [];
+//     if (row.image) filesToRemove.push(row.image);
+//     if (row.images) {
+//       String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
+//     }
 
-    // Try to unlink files (best-effort)
-    filesToRemove.forEach(f => {
-      try {
-        const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
-        if (fs.existsSync(candidate)) {
-          fs.unlinkSync(candidate);
-          console.log('Removed file:', candidate);
-        }
-      } catch (ue) {
-        console.error('Failed to remove file', f, ue);
-      }
-    });
+//     // Try to unlink files (best-effort)
+//     filesToRemove.forEach(f => {
+//       try {
+//         const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
+//         if (fs.existsSync(candidate)) {
+//           fs.unlinkSync(candidate);
+//           console.log('Removed file:', candidate);
+//         }
+//       } catch (ue) {
+//         console.error('Failed to remove file', f, ue);
+//       }
+//     });
 
-    // Now remove variants then product
-    productDB.serialize(() => {
-      productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
-        if (err) console.error('Error deleting variants:', err);
-        productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
-          if (err2) {
-            console.error('Error deleting product:', err2);
-            return res.status(500).send('Error deleting product');
-          }
-          console.log('Deleted product', id);
-          res.redirect('/admin/products');
-        });
-      });
-    });
-  });
-});
+//     // Now remove variants then product
+//     productDB.serialize(() => {
+//       productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
+//         if (err) console.error('Error deleting variants:', err);
+//         productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
+//           if (err2) {
+//             console.error('Error deleting product:', err2);
+//             return res.status(500).send('Error deleting product');
+//           }
+//           console.log('Deleted product', id);
+//           res.redirect('/admin/products');
+//         });
+//       });
+//     });
+//   });
+// });
 
 
 // ==================================
@@ -1097,59 +1266,18 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// ==================================
-// 16. START SERVER
-// ==================================
-console.log('REGISTER DELETE ROUTE');
-app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
-  if (!id) return res.status(400).send('Invalid id');
-
-  // Verify product exists and remove any uploaded image files
-  productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
-    if (gErr) {
-      console.error('Error querying product before delete:', gErr);
-      return res.status(500).send('DB error');
-    }
-    if (!row) return res.status(404).send('Product not found');
-
-    const filesToRemove = [];
-    if (row.image) filesToRemove.push(row.image);
-    if (row.images) {
-      String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
-    }
-
-    // Try to unlink files (best-effort)
-    filesToRemove.forEach(f => {
-      try {
-        const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
-        if (fs.existsSync(candidate)) {
-          fs.unlinkSync(candidate);
-          console.log('Removed file:', candidate);
-        }
-      } catch (ue) {
-        console.error('Failed to remove file', f, ue);
-      }
-    });
-
-    // Now remove variants then product
-    productDB.serialize(() => {
-      productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
-        if (err) console.error('Error deleting variants:', err);
-        productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
-          if (err2) {
-            console.error('Error deleting product:', err2);
-            return res.status(500).send('Error deleting product');
-          }
-          console.log('Deleted product', id);
-          res.redirect('/admin/products');
-        });
-      });
-    });
+// Dev-only: set session to admin for quick UI testing
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/__debug__/session/admin', (req, res) => {
+    req.session.user = {
+      id: 'dev-admin',
+      username: 'admin',
+      displayName: 'Admin (dev)',
+      role: 'admin'
+    };
+    res.send('Session set to admin for testing. <a href="/admin/products">Go to admin products</a>');
   });
-});
-
+}
 
 // ==================================
 // 15. ADMIN — QUẢN LÝ TRẢ HÀNG
@@ -1228,7 +1356,7 @@ if (process.env.NODE_ENV !== 'production') {
     res.json({ routes });
   });
 }
-
+module.exports = app;
 // Note: listening is performed by start_server.js in development.
 // Remove direct app.listen here to avoid double-listen when required.
 
