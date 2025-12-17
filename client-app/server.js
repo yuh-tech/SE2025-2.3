@@ -29,8 +29,9 @@ productDB.serialize(() => {
 const dbGet = promisify(productDB.get.bind(productDB));
 const dbAll = promisify(productDB.all.bind(productDB));
 
-
+const dbCustomerAll = promisify(db.all.bind(db));
 const dbCustomerGet = promisify(db.get.bind(db));           // customers.db
+
 const dbOrderGet = promisify(orderDB.get.bind(orderDB));    // orders.db
 const dbOrderAll = promisify(orderDB.all.bind(orderDB));
 
@@ -67,16 +68,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
   session({
-    // Đặt tên cookie riêng để không đè với oauth-server (cùng domain localhost)
-    name: 'client_app.sid',
     secret: process.env.SESSION_SECRET || 'secret-key-very-hard-to-guess',
     resave: false,
     saveUninitialized: true,
-    cookie: {
-      secure: false,   // dev http
-      httpOnly: true,
-      sameSite: 'lax', // cho phép gửi cookie khi redirect top-level từ oauth server
-    }
+    cookie: { secure: false }
   })
 );
 
@@ -109,9 +104,9 @@ console.log('checkpoint A - middleware configured');
 // ==================================
 const OAUTH_CONFIG = {
   issuer: process.env.OAUTH_ISSUER || 'http://localhost:3000',
-  client_id: process.env.OAUTH_CLIENT_ID || 'Sunshine Boutique App',
+  client_id: process.env.OAUTH_CLIENT_ID || 'my_app',
   client_secret: process.env.OAUTH_CLIENT_SECRET || 'demo-client-secret',
-  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:3001/callback',
+  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:8080/callback',
   scope: 'openid profile email offline_access',
   authorization_endpoint: '/authorize',
   token_endpoint: '/token',
@@ -395,18 +390,8 @@ app.get('/auth/oauth', (req, res) => {
   authUrl.searchParams.set('code_challenge_method', 'S256');
   
   console.log('🔐 Redirecting to OAuth Server:', authUrl.toString());
-
-  // Đảm bảo session được lưu trước khi redirect (tránh mất state)
-  req.session.save((err) => {
-    if (err) {
-      console.error('❌ Failed to save session before redirect:', err);
-      return res.render('error', {
-        title: 'Session Error',
-        message: 'Cannot initiate OAuth flow, session save failed'
-      });
-    }
-    res.redirect(authUrl.toString());
-  });
+  
+  res.redirect(authUrl.toString());
 });
 
 /**
@@ -437,7 +422,7 @@ app.get('/callback', async (req, res) => {
   const codeVerifier = req.session.code_verifier;
   
   if (!code || !codeVerifier) {
-    console.error('❌ Missing code or code_verifier', { code, hasVerifier: !!codeVerifier });
+    console.error('❌ Missing code or code_verifier');
     return res.render('error', { 
       title: 'OAuth Error',
       message: 'Missing authorization code or PKCE verifier' 
@@ -654,6 +639,26 @@ app.get('/products', (req, res) => {
   });
 });
 
+// API LẤY TÙY CHỌN SẢN PHẨM (MÀU, SIZE, SỐ LƯỢNG)
+app.get('/api/product-options/:id', (req, res) => {
+  const productId = req.params.id;
+
+  productDB.all(
+    `
+    SELECT color, size, quantity
+    FROM product_quantity
+    WHERE product_id = ?
+    `,
+    [productId],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: 'DB ERROR' });
+      }
+      res.json(rows);
+    }
+  );
+});
+
 
 // ----- PRODUCT DETAIL -----
 app.get('/product/:id', (req, res) => {
@@ -822,10 +827,16 @@ app.post('/orders/:id/return', (req, res) => {
 });
 
 // ==================================
+app.get('/admin/dashboard', isAdmin, (req, res) => {
+  res.render('admin/dashboard', {
+    title: 'Admin Dashboard'
+  });
+});
 
 // ==================================
 // 12. ADMIN — DASHBOARD
 // ==================================
+
 app.get('/admin', isAdmin, async (req, res) => {
   try {
     // 1️⃣ Tổng sản phẩm
@@ -903,6 +914,29 @@ app.get('/admin', isAdmin, async (req, res) => {
     });
   }
 });
+
+// ======== QUẢN LÝ KHÁCH HÀNG ========
+
+app.get('/admin/customers', isAdmin, async (req, res) => {
+  console.log('>>> ADMIN CUSTOMERS ROUTE HIT');
+  try {
+    const customers = await dbCustomerAll(`
+      SELECT id, username, displayName, phone, address, dob, created_at
+      FROM customers
+      ORDER BY id DESC
+    `);
+
+    res.render('admin/customers', {
+      title: 'Danh sách khách hàng',
+      customers
+    });
+  } catch (err) {
+    console.error('ADMIN CUSTOMERS ERROR:', err);
+    res.status(500).send('DB ERROR');
+  }
+});
+
+
 // ==================================
 // 13. ADMIN — QUẢN LÝ SẢN PHẨM
 // ==================================

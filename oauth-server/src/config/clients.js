@@ -11,11 +11,11 @@
 const clients = [
   {
     // Client App - E-commerce Sunshine Boutique
-    client_id: 'Sunshine Boutique App',
+    client_id: 'my_app',
     client_secret: 'demo-client-secret', // phần này sau này sẽ lưu vào DB và hash bằng bcrypt
     client_name: 'Sunshine Boutique',
-    redirect_uris: ['http://localhost:3001/callback'],
-    post_logout_redirect_uris: ['http://localhost:3001', 'http://localhost:3001/login'],
+    redirect_uris: ['http://localhost:8080/callback'],
+    post_logout_redirect_uris: ['http://localhost:8080', 'http://localhost:8080/login'],
     response_types: ['code'], // Authorization Code Flow
     grant_types: ['authorization_code', 'refresh_token'],
     scope: 'openid profile email offline_access',

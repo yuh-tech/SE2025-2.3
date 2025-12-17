@@ -63,18 +63,33 @@
                 </div>
                 <div class="info">
                   <h3><%= p.name %></h3>
-                  <p class="price"><%= p.price.toLocaleString('vi-VN') %> ₫</p>
+
+                  <% if (p.salePrice && p.salePrice < p.price) { %>
+                    <div class="price-box">
+                      <div class="price-old">
+                        <%= p.price.toLocaleString('vi-VN') %> ₫
+                      </div>
+                      <div class="price-sale">
+                        <%= p.salePrice.toLocaleString('vi-VN') %> ₫
+                      </div>
+                    </div>
+                  <% } else { %>
+                    <p class="price">
+                      <%= p.price.toLocaleString('vi-VN') %> ₫
+                    </p>
+                  <% } %>
 
                   <button class="quick-add-btn"
                     data-id="<%= p.id %>"
                     data-name="<%= p.name %>"
-                    data-price="<%= p.price %>"
+                    data-price="<%= (p.salePrice && p.salePrice < p.price) ? p.salePrice : p.price %>"
                     data-image="<%= p.image %>">
                     Thêm vào giỏ
                   </button>
 
                   <a href="/product/<%= p.id %>" class="detail-btn">Xem chi tiết</a>
                 </div>
+
               </div>
             <% }) %>
           <% } %>
@@ -208,15 +223,61 @@
   @media (max-width: 576px) {
     .product-grid { grid-template-columns: 1fr; }
   }
+  /* ===== PRICE SALE STYLE ===== */
+.price-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0;
+}
+
+.price-old {
+  color: #e74a3b;
+  text-decoration: line-through;
+  font-size: 14px;
+}
+
+.price-sale {
+  color: #ff6b9d;
+  font-size: 20px;
+  font-weight: bold;
+}
+.option-btn {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.option-btn.selected {
+  background: #ff6b9d;
+  color: white;
+}
+
+.option-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
 </style>
 
 <script>
+document.addEventListener("DOMContentLoaded", () => {
+
   const isLoggedIn = <%= currentUser ? 'true' : 'false' %>;
   const modal = document.getElementById("quickAddModal");
   const toast = document.getElementById("toast");
 
+  let selectedColor = null;
+  let selectedSize = null;
+  let currentProductId = null;
+  window.productOptions = [];
+
+  /* ================= CLICK THÊM GIỎ ================= */
   document.querySelectorAll(".quick-add-btn").forEach(btn => {
     btn.addEventListener("click", function () {
+
       if (!isLoggedIn) {
         toast.style.background = "#ffb347";
         toast.style.color = "white";
@@ -224,100 +285,146 @@
         toast.classList.add("show");
         setTimeout(() => {
           toast.classList.remove("show");
-          location.href = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
-        }, 1500);
+          location.href = "/login";
+        }, 1200);
         return;
       }
+
+      currentProductId = this.dataset.id;
 
       document.getElementById("modalImg").src = this.dataset.image;
       document.getElementById("modalName").textContent = this.dataset.name;
-      document.getElementById("modalPrice").textContent = Number(this.dataset.price).toLocaleString("vi-VN") + " ₫";
+      document.getElementById("modalPrice").textContent =
+        Number(this.dataset.price).toLocaleString("vi-VN") + " ₫";
 
-      document.querySelectorAll("#quickAddModal .color-btn, #quickAddModal .size-btn")
-        .forEach(b => b.classList.remove("selected"));
-      document.querySelector(".modal-warning").style.display = "none";
+      selectedColor = null;
+      selectedSize = null;
 
-      const addBtn = document.getElementById("modalAddBtn");
-      addBtn.disabled = true;
-      addBtn.classList.remove("enabled");
-      addBtn.dataset.id = this.dataset.id;
-
-      modal.style.display = "flex";
+      fetch(`/api/product-options/${currentProductId}`)
+        .then(res => res.json())
+        .then(data => {
+          window.productOptions = data;
+          renderColors();
+          renderSizes();
+          checkReady();
+          modal.style.display = "flex";
+        });
     });
   });
 
-  if (isLoggedIn) {
-    let selectedColor = "";
-    let selectedSize = "";
+  /* ================= RENDER COLOR ================= */
+  function renderColors() {
+    const box = document.getElementById("colorOptions");
+    box.innerHTML = "";
 
-    document.querySelectorAll("#quickAddModal .color-btn").forEach(btn => {
-      btn.addEventListener("click", function () {
-        document.querySelectorAll("#quickAddModal .color-btn").forEach(b => b.classList.remove("selected"));
-        this.classList.add("selected");
-        selectedColor = this.dataset.color;
+    const colors = [...new Set(window.productOptions.map(o => o.color))];
+
+    colors.forEach(color => {
+      const btn = document.createElement("button");
+      btn.textContent = color;
+      btn.className = "option-btn";
+
+      if (!isColorAvailable(color)) btn.disabled = true;
+      if (color === selectedColor) btn.classList.add("selected");
+
+      btn.onclick = () => {
+        selectedColor = color;
+        selectedSize = null;
+        renderColors();
+        renderSizes();
         checkReady();
-      });
+      };
+
+      box.appendChild(btn);
     });
-
-    document.querySelectorAll("#quickAddModal .size-btn").forEach(btn => {
-      btn.addEventListener("click", function () {
-        document.querySelectorAll("#quickAddModal .size-btn").forEach(b => b.classList.remove("selected"));
-        this.classList.add("selected");
-        selectedSize = this.dataset.size;
-        checkReady();
-      });
-    });
-
-    function checkReady() {
-      const addBtn = document.getElementById("modalAddBtn");
-      if (selectedColor && selectedSize) {
-        addBtn.disabled = false;
-        addBtn.classList.add("enabled");
-      } else {
-        addBtn.disabled = true;
-        addBtn.classList.remove("enabled");
-      }
-    }
-
-    // ĐOẠN QUAN TRỌNG NHẤT – ĐÃ SỬA HOÀN HẢO
-    document.getElementById("modalAddBtn").addEventListener("click", function () {
-      if (!selectedColor || !selectedSize) {
-        document.querySelector(".modal-warning").style.display = "block";
-        return;
-      }
-
-      fetch(`/cart/add/${this.dataset.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ color: selectedColor, size: selectedSize })
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          modal.style.display = "none";
-          toast.style.background = "#a8e6cf";
-          toast.style.color = "#155d42";
-          toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ!`;
-          toast.classList.add("show");
-          setTimeout(() => toast.classList.remove("show"), 3000);
-
-          // CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG REALTIME – HOÀN HẢO
-          if (window.updateCartBadge && typeof data.cartCount === 'number') {
-            window.updateCartBadge(data.cartCount);
-          }
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        toast.style.background = "#ff4444";
-        toast.style.color = "white";
-        toast.textContent = "Lỗi rồi ạ!";
-        toast.classList.add("show");
-        setTimeout(() => toast.classList.remove("show"), 2000);
-      });
-    });
-
-    document.querySelector(".modal-close")?.addEventListener("click", () => modal.style.display = "none");
-    window.addEventListener("click", e => { if (e.target === modal) modal.style.display = "none"; });
   }
+
+  /* ================= RENDER SIZE ================= */
+  function renderSizes() {
+    const box = document.getElementById("sizeOptions");
+    box.innerHTML = "";
+
+    const sizes = [...new Set(window.productOptions.map(o => o.size))];
+
+    sizes.forEach(size => {
+      const btn = document.createElement("button");
+      btn.textContent = size;
+      btn.className = "option-btn";
+
+      if (!isSizeAvailable(size)) btn.disabled = true;
+      if (size === selectedSize) btn.classList.add("selected");
+
+      btn.onclick = () => {
+        selectedSize = size;
+        renderColors();
+        renderSizes();
+        checkReady();
+      };
+
+      box.appendChild(btn);
+    });
+  }
+
+  function isColorAvailable(color) {
+    return window.productOptions.some(
+      o =>
+        o.color === color &&
+        (!selectedSize || o.size === selectedSize) &&
+        o.quantity > 0
+    );
+  }
+
+  function isSizeAvailable(size) {
+    return window.productOptions.some(
+      o =>
+        o.size === size &&
+        (!selectedColor || o.color === selectedColor) &&
+        o.quantity > 0
+    );
+  }
+
+  function checkReady() {
+    const btn = document.getElementById("modalAddBtn");
+    btn.disabled = !(selectedColor && selectedSize);
+  }
+
+  /* ================= ADD TO CART ================= */
+  document.getElementById("modalAddBtn").addEventListener("click", () => {
+    if (!selectedColor || !selectedSize) return;
+
+    fetch(`/cart/add/${currentProductId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        color: selectedColor,
+        size: selectedSize
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        modal.style.display = "none";
+        toast.style.background = "#a8e6cf";
+        toast.style.color = "#155d42";
+        toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ`;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 2500);
+
+        if (window.updateCartBadge && typeof data.cartCount === "number") {
+          window.updateCartBadge(data.cartCount);
+        }
+      }
+    });
+  });
+
+  /* ================= CLOSE MODAL ================= */
+  document.querySelector(".modal-close")?.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  window.addEventListener("click", e => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+});
 </script>
