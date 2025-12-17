@@ -13,34 +13,28 @@
 
     <div class="modal-options">
       <div class="option-group">
-        <label>Màu sắc:</label>
-        <div class="color-options">
-          <button type="button" class="color-btn" data-color="Trắng kem">Trắng kem</button>
-          <button type="button" class="color-btn" data-color="Xanh mint">Xanh mint</button>
-          <button type="button" class="color-btn" data-color="Hồng phấn">Hồng phấn</button>
-          <button type="button" class="color-btn" data-color="Be">Be</button>
-          <button type="button" class="color-btn" data-color="Đen">Đen</button>
-        </div>
+        <p>Màu sắc</p>
+        <div id="colorOptions" class="option-list"></div>
       </div>
 
-      <div class="option">
-        <label>Kích cỡ:</label>
-        <div class="size-options">
-          <button type="button" class="size-btn" data-size="S">S</button>
-          <button type="button" class="size-btn" data-size="M">M</button>
-          <button type="button" class="size-btn" data-size="L">L</button>
-          <button type="button" class="size-btn" data-size="XL">XL</button>
-        </div>
+      <div class="option-group">
+        <p>Kích cỡ</p>
+        <div id="sizeOptions" class="option-list"></div>
       </div>
 
-      <p class="modal-warning" style="color:#e74c3c; margin:15px 0; display:none;">
-        Vui lòng chọn màu sắc và kích cỡ!
+      <p class="modal-warning" style="display:none;color:red;">
+        Vui lòng chọn đủ màu và size
       </p>
+    </div>
 
-      <button id="modalAddBtn" class="add-to-cart-btn" disabled>Thêm vào giỏ hàng</button>
+    <div class="modal-actions">
+      <button id="modalAddBtn" disabled>
+        Thêm vào giỏ
+      </button>
     </div>
   </div>
 </div>
+
 
 <style>
   .modal-overlay {
@@ -76,12 +70,174 @@
     background: #ff6b9d; color: white; border-color: #ff6b9d;
   }
   .add-to-cart-btn {
-    width: 100%; padding: 14px; background: #a8e6cf; color: #155d42;
-    border: none; border-radius: 50px; font-size: 17px; font-weight: bold;
-    margin-top: 10px; cursor: not-allowed; opacity: 0.7;
+    width: 100%;
+    padding: 14px;
+    border-radius: 30px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    background: #a8e6cf;
+    color: #155d42;
+    cursor: pointer;
+    transition: 0.2s;
   }
-  .add-to-cart-btn.enabled {
-    opacity: 1; cursor: pointer;
+
+  .add-to-cart-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
-  .add-to-cart-btn.enabled:hover { background: #88d8b0; }
+
+  .add-to-cart-btn:not(:disabled):hover {
+    background: #88d8b0;
+  }
+
+  /* ===== MODAL OVERLAY ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* ===== MODAL BOX ===== */
+.modal-content {
+  background: #fff;
+  width: 480px;
+  max-width: 90%;
+  border-radius: 16px;
+  padding: 20px 22px 24px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+  animation: modalFade 0.25s ease;
+}
+
+/* animation nhẹ */
+@keyframes modalFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ===== CLOSE ===== */
+.modal-close {
+  position: absolute;
+  right: 18px;
+  top: 14px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #888;
+}
+.modal-close:hover {
+  color: #000;
+}
+
+/* ===== PRODUCT INFO ===== */
+.modal-product {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.modal-product img {
+  width: 90px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+.modal-info h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.modal-price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e74c3c;
+}
+
+/* ===== OPTIONS ===== */
+.option-group {
+  margin-bottom: 14px;
+}
+
+.option-group p {
+  margin: 0 0 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* buttons */
+.option-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.15s;
+}
+
+.option-btn:hover {
+  border-color: #333;
+}
+
+.option-btn.selected {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.option-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ===== WARNING ===== */
+.modal-warning {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+/* ===== ACTIONS ===== */
+.modal-actions {
+  margin-top: 18px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-primary:hover {
+  background: #000;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 </style>
