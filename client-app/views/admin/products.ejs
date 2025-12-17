@@ -1,12 +1,71 @@
 <%- include('../partials/header') %>
 
-<!-- <div>< class="admin-container"></div> -->
- <div class="admin-card">
-    <h1>Danh sách sản phẩm</h1>
-    <a href="/admin" class="back-btn">← Quay lại Dashboard</a> 
-  </div>
+<div class="admin-container">
+  <h1>Quản lý sản phẩm</h1>
 
-  <table>
+  <!-- FORM THÊM SẢN PHẨM -->
+  <form action="/admin/products/add" method="POST" enctype="multipart/form-data" class="product-form">
+
+    <div class="row">
+      <label>Tên sản phẩm</label>
+      <input type="text" name="name" required />
+    </div>
+
+    <div class="row">
+      <label>Giá gốc</label>
+      <input type="number" name="price" required />
+    </div>
+
+    <div class="row">
+      <label>Giá sale</label>
+      <input type="number" id="sale-price" name="salePrice" placeholder="0 nếu không sale" />
+    </div>
+
+    <div class="row">
+      <label>Mô tả ngắn</label>
+      <input type="text" name="shortDesc" maxlength="200" required />
+    </div>
+
+    <div class="row">
+      <label>Ảnh sản phẩm</label>
+      <input type="file" name="images[]" multiple />
+      <small>Bạn có thể chọn nhiều ảnh. Ảnh đầu tiên sẽ là ảnh chính.</small>
+    </div>
+
+    <div class="row">
+      <label>Danh mục</label>
+      <input type="text" name="category" required />
+    </div>
+
+    <!-- VARIANTS -->
+    <div class="row">
+      <label>Thêm màu + size + SL</label>
+      <div id="variant-wrapper"></div>
+      <button type="button" class="add-variant-btn">+ Thêm biến thể</button>
+    </div>
+
+    <div class="row">
+      <label>Mô tả chi tiết</label>
+      <textarea name="description" rows="4" required></textarea>
+    </div>
+
+    <div class="row">
+      <label>Trạng thái</label>
+      <select name="status" id="status-select">
+        <option value="normal">Bình thường</option>
+        <option value="sale">Đang Sale</option>
+        <option value="hidden">Ẩn</option>
+      </select>
+    </div>
+
+    <button class="admin-btn">Thêm sản phẩm</button>
+  </form>
+
+  <!-- DANH SÁCH -->
+  <div class="admin-card">
+    <h2>Danh sách sản phẩm</h2>
+
+    <table class="admin-table">
       <thead>
         <tr>
           <th>Ảnh</th>
@@ -116,69 +175,7 @@
         <% }) %>
       </tbody>
     </table>
-
-  <div class="add-product-form">
-    <h1>Thêm sản phẩm</h1>
   </div>
-  <!-- FORM THÊM SẢN PHẨM -->
-  <form action="/admin/products/add" method="POST" enctype="multipart/form-data" class="product-form">
-
-    <div class="row">
-      <label>Tên sản phẩm</label>
-      <input type="text" name="name" required />
-    </div>
-
-    <div class="row">
-      <label>Giá gốc</label>
-      <input type="number" name="price" required />
-    </div>
-
-    <div class="row">
-      <label>Giá sale</label>
-      <input type="number" id="sale-price" name="salePrice" placeholder="0 nếu không sale" />
-    </div>
-
-    <div class="row">
-      <label>Mô tả ngắn</label>
-      <input type="text" name="shortDesc" maxlength="200" required />
-    </div>
-
-    <div class="row">
-      <label>Ảnh sản phẩm</label>
-      <input type="file" name="images[]" multiple />
-      <small>Bạn có thể chọn nhiều ảnh. Ảnh đầu tiên sẽ là ảnh chính.</small>
-    </div>
-
-    <div class="row">
-      <label>Danh mục</label>
-      <input type="text" name="category" required />
-    </div>
-
-    <!-- VARIANTS -->
-    <div class="row">
-      <label>Thêm màu + size + SL</label>
-      <div id="variant-wrapper"></div>
-      <button type="button" class="add-variant-btn">+ Thêm </button>
-    </div>
-
-    <div class="row">
-      <label>Mô tả chi tiết</label>
-      <textarea name="description" rows="4" required></textarea>
-    </div>
-
-    <div class="row">
-      <label>Trạng thái</label>
-      <select name="status" id="status-select">
-        <option value="normal">Bình thường</option>
-        <option value="sale">Đang Sale</option>
-        <option value="hidden">Ẩn</option>
-      </select>
-    </div>
-
-    <button class="admin-btn">Thêm sản phẩm</button>
-  </form>
-
-
 </div>
 
 
@@ -223,17 +220,6 @@
 </script>
 
 <style>
-  .admin-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-  
-  .add-product-form {
-      margin-top: 40px;
-      margin-bottom: 20px;
-  }
   .product-img {
     width: 60px;
     height: 60px;
@@ -285,29 +271,6 @@
   }
   .edit-btn { background: #2980b9; }
   .delete-btn { background: #e74c3c; }
-  .back-btn {
-      text-decoration: none;
-      background: #4e73df;
-      color: #fff;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    }
-    th, td {
-      padding: 12px 15px;
-      text-align: left;
-    }
-    thead {
-      background: #4e73df;
-      color: #fff;
-    }
 </style>
 
 <%- include('../partials/footer') %>

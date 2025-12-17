@@ -29,9 +29,8 @@ productDB.serialize(() => {
 const dbGet = promisify(productDB.get.bind(productDB));
 const dbAll = promisify(productDB.all.bind(productDB));
 
-const dbCustomerAll = promisify(db.all.bind(db));
-const dbCustomerGet = promisify(db.get.bind(db));           // customers.db
 
+const dbCustomerGet = promisify(db.get.bind(db));           // customers.db
 const dbOrderGet = promisify(orderDB.get.bind(orderDB));    // orders.db
 const dbOrderAll = promisify(orderDB.all.bind(orderDB));
 
@@ -655,26 +654,6 @@ app.get('/products', (req, res) => {
   });
 });
 
-// API LẤY TÙY CHỌN SẢN PHẨM (MÀU, SIZE, SỐ LƯỢNG)
-app.get('/api/product-options/:id', (req, res) => {
-  const productId = req.params.id;
-
-  productDB.all(
-    `
-    SELECT color, size, quantity
-    FROM product_quantity
-    WHERE product_id = ?
-    `,
-    [productId],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'DB ERROR' });
-      }
-      res.json(rows);
-    }
-  );
-});
-
 
 // ----- PRODUCT DETAIL -----
 app.get('/product/:id', (req, res) => {
@@ -843,16 +822,10 @@ app.post('/orders/:id/return', (req, res) => {
 });
 
 // ==================================
-app.get('/admin/dashboard', isAdmin, (req, res) => {
-  res.render('admin/dashboard', {
-    title: 'Admin Dashboard'
-  });
-});
 
 // ==================================
 // 12. ADMIN — DASHBOARD
 // ==================================
-
 app.get('/admin', isAdmin, async (req, res) => {
   try {
     // 1️⃣ Tổng sản phẩm
@@ -930,29 +903,6 @@ app.get('/admin', isAdmin, async (req, res) => {
     });
   }
 });
-
-// ======== QUẢN LÝ KHÁCH HÀNG ========
-
-app.get('/admin/customers', isAdmin, async (req, res) => {
-  console.log('>>> ADMIN CUSTOMERS ROUTE HIT');
-  try {
-    const customers = await dbCustomerAll(`
-      SELECT id, username, displayName, phone, address, dob, created_at
-      FROM customers
-      ORDER BY id DESC
-    `);
-
-    res.render('admin/customers', {
-      title: 'Danh sách khách hàng',
-      customers
-    });
-  } catch (err) {
-    console.error('ADMIN CUSTOMERS ERROR:', err);
-    res.status(500).send('DB ERROR');
-  }
-});
-
-
 // ==================================
 // 13. ADMIN — QUẢN LÝ SẢN PHẨM
 // ==================================

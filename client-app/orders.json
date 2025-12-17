@@ -70,26 +70,5 @@
       "Đơn hàng đã được tạo"
     ],
     "createdAt": "2025-12-09T09:17:50.304Z"
-  },
-  {
-    "id": 1765883636419,
-    "user": "123hang",
-    "items": [
-      {
-        "id": 10,
-        "name": "Túi Tote Canvas",
-        "price": 189000,
-        "image": "/images/tui-tote/tui-tote.png",
-        "color": "Xanh mint",
-        "size": "M",
-        "quantity": 1
-      }
-    ],
-    "total": 189000,
-    "status": "processing",
-    "tracking": [
-      "Đơn hàng đã được tạo"
-    ],
-    "createdAt": "2025-12-16T11:13:56.419Z"
   }
 ]

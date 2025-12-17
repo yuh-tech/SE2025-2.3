@@ -233,57 +233,9 @@ h1, h2 {
   display: block;
     }
 
-  .admin-table th, .admin-table td {
+    .admin-table th, .admin-table td {
     white-space: nowrap;
-  }
-
-  .admin-container {
-  max-width: 1100px;
-  margin: 40px auto;
-}
-
-.admin-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 14px;
-  border-bottom: 1px solid #eee;
-}
-
-.admin-table th {
-  background: #f6f8fa;
-  text-align: left;
-}
-
-.admin-table tr:hover {
-  background: #f9f9f9;
-}
-
-.btn-back {
-  display: inline-block;
-  margin-bottom: 15px;
-  text-decoration: none;
-  color: #555;
-  font-weight: 500;
-}
-
-.btn-back:hover {
-  text-decoration: underline;
-  color: #000;
-}
+    }
 
 }
 
