@@ -70,5 +70,95 @@
       "Đơn hàng đã được tạo"
     ],
     "createdAt": "2025-12-09T09:17:50.304Z"
+  },
+  {
+    "id": 1765883636419,
+    "user": "123hang",
+    "items": [
+      {
+        "id": 10,
+        "name": "Túi Tote Canvas",
+        "price": 189000,
+        "image": "/images/tui-tote/tui-tote.png",
+        "color": "Xanh mint",
+        "size": "M",
+        "quantity": 1
+      }
+    ],
+    "total": 189000,
+    "status": "processing",
+    "tracking": [
+      "Đơn hàng đã được tạo"
+    ],
+    "createdAt": "2025-12-16T11:13:56.419Z"
+  },
+  {
+    "id": 1765958758540,
+    "user": "huentm",
+    "items": [
+      {
+        "id": 10,
+        "name": "Chân váy tennis",
+        "price": 195000,
+        "image": "/uploads/1765707518769-chan-vay-tennis.png",
+        "color": "Xanh",
+        "size": "S",
+        "quantity": 1
+      },
+      {
+        "id": 12,
+        "name": "Váy hoa nhí",
+        "price": 195000,
+        "image": "/uploads/1765882346430-vay-hoa-nhi.png",
+        "color": "Xanh biển",
+        "size": "M",
+        "quantity": 1
+      },
+      {
+        "id": 8,
+        "name": "Áo khoác dáng dài",
+        "price": 665000,
+        "image": "/uploads/1765706174872-ao-khoac-phao-dang-dai.png",
+        "color": "Xanh biển",
+        "size": "M",
+        "quantity": 1
+      }
+    ],
+    "total": 1055000,
+    "status": "processing",
+    "tracking": [
+      "Đơn hàng đã được tạo"
+    ],
+    "createdAt": "2025-12-17T08:05:58.540Z"
+  },
+  {
+    "id": 1765967656181,
+    "user": "huentm",
+    "items": [
+      {
+        "id": 10,
+        "name": "Chân váy tennis",
+        "price": 195000,
+        "image": "/uploads/1765707518769-chan-vay-tennis.png",
+        "color": "Xanh",
+        "size": "S",
+        "quantity": 1
+      },
+      {
+        "id": 12,
+        "name": "Váy hoa nhí",
+        "price": 195000,
+        "image": "/uploads/1765882346430-vay-hoa-nhi.png",
+        "color": "Hồng",
+        "size": "XL",
+        "quantity": 1
+      }
+    ],
+    "total": 390000,
+    "status": "processing",
+    "tracking": [
+      "Đơn hàng đã được tạo"
+    ],
+    "createdAt": "2025-12-17T10:34:16.181Z"
   }
 ]

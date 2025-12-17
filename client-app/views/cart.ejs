@@ -17,7 +17,11 @@
       </div>
 
       <% cartItems.forEach((item, index) => { %>
-        <div class="cart-item" data-index="<%= index %>">
+        <div class="cart-item"
+          data-id="<%= item.id %>"
+          data-color="<%= item.color %>"
+          data-size="<%= item.size %>">
+
           <div class="product-info">
             <img src="<%= item.image %>" alt="<%= item.name %>">
             <div>
@@ -44,7 +48,7 @@
           </div>
 
           <div class="remove">
-            <button type="button" class="remove-btn" onclick="removeItem(<%= index %>)">×</button>
+            <button type="button" class="remove-btn" onclick="removeItem(this)">×</button>
           </div>
         </div>
       <% }) %>
@@ -222,19 +226,35 @@ document.querySelectorAll('.qty-btn').forEach(btn => {
     fetch('/cart/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ index: item.dataset.index, quantity: qty })
+      body: JSON.stringify({
+        id: item.dataset.id,
+        color: item.dataset.color,
+        size: item.dataset.size,
+        quantity: qty
+      })
+
     });
 
     updateTotal();
   });
 });
 
-function removeItem(index) {
-  if (confirm('Xóa sản phẩm này khỏi giỏ hàng?')) {
-    fetch('/cart/remove/' + index, { method: 'POST' })
-      .then(() => location.reload());
-  }
+function removeItem(btn) {
+  const item = btn.closest('.cart-item');
+
+  if (!confirm('Xóa sản phẩm này khỏi giỏ hàng?')) return;
+
+  fetch('/cart/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: item.dataset.id,
+      color: item.dataset.color,
+      size: item.dataset.size
+    })
+  }).then(() => location.reload());
 }
+
 
 function updateTotal() {
   let total = 0;
