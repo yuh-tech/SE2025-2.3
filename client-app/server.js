@@ -662,26 +662,46 @@ app.get('/api/product-options/:id', (req, res) => {
 
 // ----- PRODUCT DETAIL -----
 app.get('/product/:id', (req, res) => {
-  console.log('marker: inside /product/:id route definition');
-  const id = req.params.id;
+  const id = Number(req.params.id);
 
   productDB.get("SELECT * FROM products WHERE id = ?", [id], (err, product) => {
-    if (err) return res.send("DB Error");
-    if (!product) return res.send("Không tìm thấy sản phẩm");
+    if (err) return res.status(500).send("DB Error");
+    if (!product) return res.status(404).send("Không tìm thấy sản phẩm");
 
-    // Convert colors/sizes từ string → array  
-    product.colors = product.colors ? product.colors.split(',') : [];
-    product.sizes = product.sizes ? product.sizes.split(',') : [];
+    // Gallery từ DB
+    const images = product.images ? String(product.images).split(",").filter(Boolean) : [];
+    product.gallery = images.length ? images : (product.image ? [product.image] : []);
 
-    const productReviews = reviews.filter((r) => r.productId == id);
+    // Variants từ product_quantity
+    productDB.all(
+      `SELECT color, size, quantity
+       FROM product_quantity
+       WHERE product_id = ?`,
+      [id],
+      (vErr, variants) => {
+        if (vErr) variants = [];
 
-    res.render('product', {
-      title: product.name,
-      product,
-      reviews: productReviews
-    });
+        const productReviews = reviews.filter((r) => r.productId == id);
+
+        res.render('product', {
+          title: product.name,
+          product,
+          variants,
+          reviews: productReviews
+        });
+      }
+    );
   });
 });
+
+
+// ----- GIỎ HÀNG -----
+app.get('/cart', (req, res) => {
+  console.log('marker: inside /cart route definition');
+  const cart = req.session.cart || [];
+  res.render('cart', { title: 'Giỏ hàng', cart });
+});
+
 
 // LẤY SỐ LƯỢNG GIỎ HÀNG — Fix cho header
 app.get('/cart/count', (req, res) => {
@@ -692,49 +712,99 @@ app.get('/cart/count', (req, res) => {
 });
 
 // ==================================
-// 7. GIỎ HÀNG
-// ==================================
-app.get('/cart', (req, res) => {
-  console.log('marker: inside /cart route definition');
-  const cart = req.session.cart || [];
-  res.render('cart', { title: 'Giỏ hàng', cart });
-});
 
 app.post('/cart/add/:id', (req, res) => {
-  if (!req.session.user) return res.json({ success: false, message: 'Chưa đăng nhập' });
+  if (!req.session.user) {
+    return res.json({ success: false, message: 'Chưa đăng nhập' });
+  }
 
   const id = Number(req.params.id);
-  const product = allProducts.find((p) => p.id === id);
   const { color, size } = req.body;
+
+  if (!color || !size) {
+    return res.status(400).json({ success: false, message: 'Thiếu màu hoặc size' });
+  }
+
+  // 1) Lấy product từ DB (đúng nguồn)
+  productDB.get(
+    "SELECT id, name, price, salePrice, image FROM products WHERE id = ?",
+    [id],
+    (err, product) => {
+      if (err) return res.status(500).json({ success: false, message: 'DB Error' });
+      if (!product) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
+
+      const finalPrice =
+        product.salePrice && product.salePrice < product.price ? product.salePrice : product.price;
+
+      // 2) Check tồn kho theo variant
+      productDB.get(
+        `SELECT quantity
+         FROM product_quantity
+         WHERE product_id = ? AND color = ? AND size = ?`,
+        [id, color, size],
+        (qErr, row) => {
+          if (qErr) return res.status(500).json({ success: false, message: 'DB Error (qty)' });
+          if (!row) return res.status(400).json({ success: false, message: 'Biến thể không tồn tại' });
+          if (row.quantity <= 0) return res.status(400).json({ success: false, message: 'Hết hàng' });
+
+          req.session.cart = req.session.cart || [];
+
+          const existing = req.session.cart.find(
+            i => i.id === id && i.color === color && i.size === size
+          );
+
+          if (existing) {
+            existing.quantity++;
+          } else {
+            req.session.cart.push({
+              id: product.id,
+              name: product.name,
+              price: finalPrice,
+              image: product.image,
+              color,
+              size,
+              quantity: 1
+            });
+          }
+
+          const total = req.session.cart.reduce((s, i) => s + i.quantity, 0);
+          return res.json({ success: true, cartCount: total });
+        }
+      );
+    }
+  );
+});
+
+// CẬP NHẬT SỐ LƯỢNG TRONG GIỎ HÀNG
+app.post('/cart/update', (req, res) => {
+  const { id, color, size, quantity } = req.body;
 
   req.session.cart = req.session.cart || [];
 
-  const existing = req.session.cart.find((i) => i.id === id && i.color === color && i.size === size);
+  const item = req.session.cart.find(i =>
+    i.id === Number(id) &&
+    i.color === color &&
+    i.size === size
+  );
 
-  if (existing) existing.quantity++;
-  else
-    req.session.cart.push({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      color,
-      size,
-      quantity: 1
-    });
+  if (!item) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm trong giỏ' });
+  }
 
-  const total = req.session.cart.reduce((s, i) => s + i.quantity, 0);
-  res.json({ success: true, cartCount: total });
-});
-
-app.post('/cart/remove/:index', (req, res) => {
-  req.session.cart.splice(Number(req.params.index), 1);
+  item.quantity = Number(quantity);
   res.json({ success: true });
 });
 
-app.post('/cart/update', (req, res) => {
-  const { index, quantity } = req.body;
-  req.session.cart[index].quantity = Number(quantity);
+// XÓA SẢN PHẨM KHỎI GIỎ HÀNG
+app.post('/cart/remove', (req, res) => {
+  const { id, color, size } = req.body;
+
+  req.session.cart = req.session.cart || [];
+
+  req.session.cart = req.session.cart.filter(i =>
+    !(i.id === Number(id) && i.color === color && i.size === size)
+  );
+
   res.json({ success: true });
 });
 
