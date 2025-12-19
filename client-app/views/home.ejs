@@ -57,6 +57,58 @@
   const modal = document.getElementById('quickAddModal');
   const toast = document.getElementById('toast');
 
+  let selectedColor = null;
+  let selectedSize = null;
+  let currentProductId = null;
+  let productOptions = [];
+
+  function renderColors() {
+    const box = document.getElementById('colorOptions');
+    box.innerHTML = '';
+    const colors = [...new Set(productOptions.map(o => o.color))];
+    colors.forEach(color => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = color;
+      btn.className = 'option-btn' + (color === selectedColor ? ' selected' : '');
+      btn.disabled = !productOptions.some(o => o.color === color && (!selectedSize || o.size === selectedSize) && o.quantity > 0);
+      btn.onclick = () => {
+        selectedColor = color;
+        selectedSize = null;
+        renderColors();
+        renderSizes();
+        checkReady();
+      };
+      box.appendChild(btn);
+    });
+  }
+
+  function renderSizes() {
+    const box = document.getElementById('sizeOptions');
+    box.innerHTML = '';
+    const sizes = [...new Set(productOptions.map(o => o.size))];
+    sizes.forEach(size => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = size;
+      btn.className = 'option-btn' + (size === selectedSize ? ' selected' : '');
+      btn.disabled = !productOptions.some(o => o.size === size && (!selectedColor || o.color === selectedColor) && o.quantity > 0);
+      btn.onclick = () => {
+        selectedSize = size;
+        renderColors();
+        renderSizes();
+        checkReady();
+      };
+      box.appendChild(btn);
+    });
+  }
+
+  function checkReady() {
+    const addBtn = document.getElementById('modalAddBtn');
+    addBtn.disabled = !(selectedColor && selectedSize);
+    document.querySelector('.modal-warning').style.display = (selectedColor && selectedSize) ? 'none' : 'none';
+  }
+
   document.querySelectorAll('.quick-add-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       if (!isLoggedIn) {
@@ -70,100 +122,79 @@
         return;
       }
 
+      currentProductId = this.dataset.id;
+      selectedColor = null;
+      selectedSize = null;
+
       document.getElementById('modalImg').src = this.dataset.image;
       document.getElementById('modalName').textContent = this.dataset.name;
       document.getElementById('modalPrice').textContent =
-        parseInt(this.dataset.price).toLocaleString('vi-VN') + ' ₫';
-
-      document.querySelectorAll('#quickAddModal .color-btn, #quickAddModal .size-btn')
-        .forEach(b => b.classList.remove('selected'));
-      document.querySelector('.modal-warning').style.display = 'none';
+        Number(this.dataset.price).toLocaleString('vi-VN') + ' ₫';
 
       const addBtn = document.getElementById('modalAddBtn');
       addBtn.disabled = true;
-      addBtn.classList.remove('enabled');
-      addBtn.dataset.id = this.dataset.id;
+      addBtn.dataset.id = currentProductId;
 
-      modal.style.display = 'flex';
+      fetch(`/api/product-options/${currentProductId}`)
+        .then(r => r.json())
+        .then(rows => {
+          productOptions = Array.isArray(rows) ? rows : [];
+          renderColors();
+          renderSizes();
+          checkReady();
+          modal.style.display = 'flex';
+        })
+        .catch(err => {
+          console.error('Lỗi load options:', err);
+          toast.style.background = '#ff4444';
+          toast.style.color = 'white';
+          toast.textContent = 'Không tải được màu/size';
+          toast.classList.add('show');
+          setTimeout(() => toast.classList.remove('show'), 2000);
+        });
     });
   });
 
-  if (isLoggedIn) {
-    let selectedColor = '';
-    let selectedSize = '';
-
-    document.querySelectorAll('#quickAddModal .color-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('#quickAddModal .color-btn').forEach(b => b.classList.remove('selected'));
-        this.classList.add('selected');
-        selectedColor = this.dataset.color;
-        checkReady();
-      });
-    });
-
-    document.querySelectorAll('#quickAddModal .size-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('#quickAddModal .size-btn').forEach(b => b.classList.remove('selected'));
-        this.classList.add('selected');
-        selectedSize = this.dataset.size;
-        checkReady();
-      });
-    });
-
-    function checkReady() {
-      const addBtn = document.getElementById('modalAddBtn');
-      if (selectedColor && selectedSize) {
-        addBtn.disabled = false;
-        addBtn.classList.add('enabled');
-      } else {
-        addBtn.disabled = true;
-        addBtn.classList.remove('enabled');
-      }
+  document.getElementById('modalAddBtn').addEventListener('click', function() {
+    if (!selectedColor || !selectedSize) {
+      document.querySelector('.modal-warning').style.display = 'block';
+      return;
     }
 
-    // ĐOẠN QUAN TRỌNG NHẤT – ĐÃ SỬA XONG 100%
-    document.getElementById('modalAddBtn').addEventListener('click', function() {
-      if (!selectedColor || !selectedSize) {
-        document.querySelector('.modal-warning').style.display = 'block';
-        return;
-      }
-
-      fetch(`/cart/add/${this.dataset.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ color: selectedColor, size: selectedSize })
-      })
-      .then(r => {
-        if (!r.ok) throw new Error('Lỗi mạng');
-        return r.json();
-      })
-      .then(data => {
-        if (data.success) {
-          modal.style.display = 'none';
-          toast.style.background = '#a8e6cf';
-          toast.style.color = '#155d42';
-          toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ!`;
-          toast.classList.add('show');
-          setTimeout(() => toast.classList.remove('show'), 3000);
-
-          // ← ĐÂY LÀ DÒNG CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG REALTIME – HOẠT ĐỘNG 100%
-          if (window.updateCartBadge && typeof data.cartCount === 'number') {
-            window.updateCartBadge(data.cartCount);
-          }
-        }
-      })
-      .catch(err => {
-        console.error('Lỗi thêm vào giỏ:', err);
+    fetch(`/cart/add/${currentProductId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color: selectedColor, size: selectedSize })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        modal.style.display = 'none';
+        toast.style.background = '#a8e6cf';
+        toast.style.color = '#155d42';
+        toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ!`;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+        if (window.updateCartBadge && typeof data.cartCount === 'number') window.updateCartBadge(data.cartCount);
+      } else {
         toast.style.background = '#ff4444';
         toast.style.color = 'white';
-        toast.textContent = 'Có lỗi xảy ra!';
+        toast.textContent = data.message || 'Không thể thêm vào giỏ';
         toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
-      });
+        setTimeout(() => toast.classList.remove('show'), 2500);
+      }
+    })
+    .catch(err => {
+      console.error('Lỗi thêm vào giỏ:', err);
+      toast.style.background = '#ff4444';
+      toast.style.color = 'white';
+      toast.textContent = 'Có lỗi xảy ra!';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
     });
+  });
 
-    // Đóng modal
-    document.querySelector('.modal-close')?.addEventListener('click', () => modal.style.display = 'none');
-    window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
-  }
+  // Đóng modal
+  document.querySelector('.modal-close')?.addEventListener('click', () => modal.style.display = 'none');
+  window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
 </script>
