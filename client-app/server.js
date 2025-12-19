@@ -67,7 +67,7 @@ const upload = multer({ storage: storage });
 
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
 // Export the app for external start scripts / tests
 module.exports = app;
 
@@ -116,7 +116,7 @@ const OAUTH_CONFIG = {
   issuer: process.env.OAUTH_ISSUER || 'http://localhost:3000',
   client_id: process.env.OAUTH_CLIENT_ID || 'my_app',
   client_secret: process.env.OAUTH_CLIENT_SECRET || 'demo-client-secret',
-  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:8080/callback',
+  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:3001/callback',
   scope: 'openid profile email offline_access',
   authorization_endpoint: '/authorize',
   token_endpoint: '/token',
@@ -573,7 +573,7 @@ app.get('/auth/logout', (req, res) => {
   req.session.destroy(() => {
     // Redirect đến OAuth server logout endpoint
     const logoutUrl = new URL(OAUTH_CONFIG.logout_endpoint, OAUTH_CONFIG.issuer);
-    logoutUrl.searchParams.set('post_logout_redirect_uri', 'http://localhost:8080');
+    logoutUrl.searchParams.set('post_logout_redirect_uri', 'http://localhost:3001');
     
     if (idToken) {
       logoutUrl.searchParams.set('id_token_hint', idToken);
@@ -1835,7 +1835,7 @@ if (process.env.NODE_ENV !== 'production') {
     res.json({ routes });
   });
 }
-module.exports = app;
+// (module.exports already set near the top)
 // Note: listening is performed by start_server.js in development.
 // Remove direct app.listen here to avoid double-listen when required.
 
