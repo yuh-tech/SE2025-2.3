@@ -21,51 +21,66 @@ router.get('/session/logout', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Đăng xuất - OAuth Server</title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+          --bg: #0f172a;
+          --card: #0b1220;
+          --muted: #94a3b8;
+          --text: #e2e8f0;
+          --accent: #8b5cf6;
+          --border: #1f2937;
+        }
+        * { box-sizing: border-box; }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          margin: 0;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: radial-gradient(circle at 18% 18%, rgba(139,92,246,0.22), transparent 24%),
+                      radial-gradient(circle at 82% 8%, rgba(34,197,94,0.15), transparent 20%),
+                      var(--bg);
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 32px 16px;
+          color: var(--text);
         }
         .logout-container {
-          background: white;
-          padding: 40px;
-          border-radius: 10px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
           width: 100%;
-          max-width: 400px;
+          max-width: 420px;
+          background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 16px;
+          padding: 32px;
           text-align: center;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+          backdrop-filter: blur(10px);
         }
         h1 {
-          color: #2d3748;
-          margin-bottom: 20px;
+          color: #e2e8f0;
+          margin: 0 0 12px 0;
           font-size: 24px;
+          letter-spacing: -0.2px;
         }
         p {
-          color: #718096;
-          margin-bottom: 30px;
+          color: var(--muted);
+          margin: 0 0 22px 0;
           line-height: 1.6;
+          font-size: 14px;
         }
         .btn {
           display: inline-block;
           padding: 12px 24px;
-          background: #667eea;
+          background: linear-gradient(135deg, #8b5cf6, #6366f1);
           color: white;
           border: none;
-          border-radius: 5px;
-          font-size: 16px;
-          font-weight: 600;
+          border-radius: 12px;
+          font-size: 15px;
+          font-weight: 700;
           cursor: pointer;
           text-decoration: none;
-          transition: background 0.3s;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+          box-shadow: 0 12px 30px rgba(99,102,241,0.35);
         }
-        .btn:hover {
-          background: #5a67d8;
-        }
+        .btn:hover { transform: translateY(-1px); }
       </style>
     </head>
     <body>
@@ -109,57 +124,64 @@ router.get('/logout/success', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Sign-out Success - OAuth Server</title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+          --bg: #0f172a;
+          --card: #0b1220;
+          --muted: #94a3b8;
+          --text: #e2e8f0;
+          --accent: #8b5cf6;
+          --border: #1f2937;
+        }
+        * { box-sizing: border-box; }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: #f8fafc;
-          color: #2d3748;
+          margin: 0;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: radial-gradient(circle at 18% 18%, rgba(139,92,246,0.22), transparent 24%),
+                      radial-gradient(circle at 82% 8%, rgba(34,197,94,0.15), transparent 20%),
+                      var(--bg);
+          color: var(--text);
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 32px 16px;
         }
         .card {
-          background: white;
-          padding: 36px 40px;
-          border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-          max-width: 420px;
+          width: 100%;
+          max-width: 460px;
+          background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 16px;
+          padding: 32px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+          backdrop-filter: blur(10px);
           text-align: center;
         }
         h1 {
-          font-size: 26px;
-          margin-bottom: 12px;
-          color: #2d3748;
+          font-size: 24px;
+          margin: 0 0 12px 0;
+          letter-spacing: -0.2px;
         }
-        p { margin-bottom: 22px; color: #4a5568; line-height: 1.6; }
+        p { margin: 0 0 22px 0; color: var(--muted); line-height: 1.6; }
         .btn {
           display: inline-block;
           padding: 12px 18px;
-          border-radius: 8px;
+          border-radius: 10px;
           text-decoration: none;
-          font-weight: 600;
-          margin: 0 6px;
-          transition: all 0.2s;
+          font-weight: 700;
+          transition: all 0.18s ease;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: #0f172a;
+          color: var(--text);
         }
-        .btn-primary {
-          background: #667eea;
-          color: white;
-        }
-        .btn-primary:hover { background: #5a67d8; }
-        .btn-secondary {
-          background: #e2e8f0;
-          color: #2d3748;
-        }
-        .btn-secondary:hover { background: #cbd5e0; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(0,0,0,0.25); }
       </style>
     </head>
     <body>
       <div class="card">
         <h1>✅ Đăng xuất thành công</h1>
         <p>Bạn đã đăng xuất khỏi hệ thống.</p>
-        <a class="btn btn-secondary" href="/">Về trang chủ OAuth</a>
+        <a class="btn" href="/">Về trang chủ OAuth</a>
       </div>
     </body>
     </html>

@@ -166,152 +166,150 @@ function renderConsentPage(req, res, details) {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Xác nhận quyền truy cập - OAuth Server</title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+          --bg: #0f172a;
+          --card: #0b1220;
+          --muted: #94a3b8;
+          --text: #e2e8f0;
+          --accent: #8b5cf6;
+          --accent-2: #22c55e;
+          --border: #1f2937;
+        }
+        * { box-sizing: border-box; }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          margin: 0;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: radial-gradient(circle at 18% 18%, rgba(139,92,246,0.22), transparent 24%),
+                      radial-gradient(circle at 82% 8%, rgba(34,197,94,0.15), transparent 20%),
+                      var(--bg);
+          color: var(--text);
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 32px 16px;
         }
-        .consent-container {
-          background: white;
-          padding: 40px;
-          border-radius: 10px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        .shell {
           width: 100%;
-          max-width: 500px;
+          max-width: 540px;
+          background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 16px;
+          padding: 28px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+          backdrop-filter: blur(10px);
         }
         .header {
-          text-align: center;
-          margin-bottom: 30px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 12px;
         }
-        .header h1 {
-          color: #2d3748;
-          font-size: 24px;
-          margin-bottom: 10px;
-        }
-        .header p {
-          color: #718096;
-          font-size: 14px;
-        }
-        .client-info {
-          background: #f7fafc;
-          padding: 20px;
-          border-radius: 8px;
-          margin-bottom: 25px;
-        }
-        .client-info h2 {
-          color: #2d3748;
+        .client-avatar {
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, var(--accent), #6366f1);
+          display: grid;
+          place-items: center;
+          font-weight: 800;
+          color: white;
+          letter-spacing: -0.5px;
           font-size: 18px;
-          margin-bottom: 10px;
         }
-        .client-info p {
-          color: #4a5568;
+        h1 { margin: 0; font-size: 22px; letter-spacing: -0.2px; }
+        .muted { color: var(--muted); font-size: 14px; margin: 4px 0 0 0; }
+        .user {
+          margin: 16px 0;
+          padding: 12px 14px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          background: rgba(255,255,255,0.02);
           font-size: 14px;
+          color: #cbd5e1;
         }
-        .permissions {
-          margin-bottom: 25px;
+        .section-title {
+          margin: 18px 0 10px 0;
+          font-size: 14px;
+          color: var(--muted);
+          letter-spacing: 0.2px;
+          text-transform: uppercase;
         }
-        .permissions h3 {
-          color: #2d3748;
-          font-size: 16px;
-          margin-bottom: 15px;
+        .scope {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
         }
-        .permission-item {
+        .scope-item {
           display: flex;
-          align-items: start;
+          gap: 12px;
           padding: 12px;
-          background: #f7fafc;
-          border-radius: 5px;
-          margin-bottom: 10px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.06);
+          background: #0b1220;
         }
-        .permission-item .icon {
-          font-size: 20px;
-          margin-right: 12px;
+        .scope-icon {
+          font-size: 18px;
+          opacity: 0.9;
         }
-        .permission-item .text {
-          flex: 1;
-        }
-        .permission-item .text strong {
-          display: block;
-          color: #2d3748;
-          font-size: 14px;
-          margin-bottom: 3px;
-        }
-        .permission-item .text span {
-          color: #718096;
-          font-size: 13px;
-        }
-        .user-info {
-          background: #edf2f7;
-          padding: 12px 15px;
-          border-radius: 5px;
-          margin-bottom: 25px;
-          font-size: 14px;
-          color: #4a5568;
-        }
+        .scope-text strong { display: block; color: #e2e8f0; }
+        .scope-text span { color: var(--muted); font-size: 13px; }
         .actions {
-          display: flex;
-          gap: 15px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0,1fr));
+          gap: 12px;
+          margin-top: 22px;
         }
         .btn {
-          flex: 1;
           padding: 12px;
-          border: none;
-          border-radius: 5px;
-          font-size: 16px;
-          font-weight: 600;
+          border-radius: 12px;
+          border: 1px solid transparent;
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.3s;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
         }
-        .btn-confirm {
-          background: #48bb78;
+        .btn:focus { outline: none; }
+        .btn-approve {
+          background: linear-gradient(135deg, #22c55e, #16a34a);
           color: white;
-        }
-        .btn-confirm:hover {
-          background: #38a169;
+          box-shadow: 0 12px 26px rgba(22,163,74,0.35);
+          border-color: rgba(34,197,94,0.6);
         }
         .btn-deny {
-          background: #e2e8f0;
-          color: #4a5568;
+          background: #0f172a;
+          color: #e2e8f0;
+          border: 1px solid rgba(255,255,255,0.12);
         }
-        .btn-deny:hover {
-          background: #cbd5e0;
-        }
+        .btn:hover { transform: translateY(-1px); }
       </style>
     </head>
     <body>
-      <div class="consent-container">
+      <div class="shell">
         <div class="header">
-          <h1>🔐 Xác nhận quyền truy cập</h1>
-          <p>Ứng dụng yêu cầu quyền truy cập thông tin của bạn</p>
-        </div>
-        
-        <div class="client-info">
-          <h2>📱 ${escapeHtml(client.name)}</h2>
-          <p><strong>Client ID:</strong> ${escapeHtml(client.client_id)}</p>
-        </div>
-        
-        ${req.session.user ? `
-          <div class="user-info">
-            👤 Đăng nhập với tài khoản: <strong>${escapeHtml(req.session.user.name || req.session.user.username)}</strong>
+          <div class="client-avatar">${escapeHtml(client.name?.[0] || 'A')}</div>
+          <div>
+            <h1>Xác nhận quyền truy cập</h1>
+            <p class="muted">Ứng dụng yêu cầu truy cập thông tin của bạn</p>
           </div>
-        ` : ''}
+        </div>
         
-        <div class="permissions">
-          <h3>Ứng dụng yêu cầu các quyền sau:</h3>
+        <div class="user">
+          <strong>Ứng dụng:</strong> ${escapeHtml(client.name)}<br/>
+          <span style="color:${escapeHtml('#94a3b8')}">Client ID: ${escapeHtml(client.client_id)}</span><br/>
+          ${req.session.user ? `Đăng nhập với: <strong>${escapeHtml(req.session.user.name || req.session.user.username)}</strong>` : 'Chưa đăng nhập'}
+        </div>
+        
+        <div class="section-title">Quyền truy cập yêu cầu</div>
+        <div class="scope">
           ${scopes.map(scope => renderPermissionItem(scope)).join('')}
         </div>
         
         <div class="actions">
-          <form method="POST" action="/interaction/${uid}/confirm" style="flex: 1;">
-            <button type="submit" class="btn btn-confirm">✓ Cho phép</button>
+          <form method="POST" action="/interaction/${uid}/confirm">
+            <button type="submit" class="btn btn-approve">Cho phép</button>
           </form>
-          <form method="POST" action="/interaction/${uid}/abort" style="flex: 1;">
-            <button type="submit" class="btn btn-deny">✗ Từ chối</button>
+          <form method="POST" action="/interaction/${uid}/abort">
+            <button type="submit" class="btn btn-deny">Từ chối</button>
           </form>
         </div>
       </div>
@@ -342,9 +340,9 @@ function renderPermissionItem(scope) {
   };
   
   return `
-    <div class="permission-item">
-      <div class="icon">${info.icon}</div>
-      <div class="text">
+    <div class="scope-item">
+      <div class="scope-icon">${info.icon}</div>
+      <div class="scope-text">
         <strong>${escapeHtml(info.name)}</strong>
         <span>${escapeHtml(info.desc)}</span>
       </div>
