@@ -140,6 +140,10 @@
         .then(r => r.json())
         .then(rows => {
           productOptions = Array.isArray(rows) ? rows : [];
+          if (!productOptions.length) {
+            // Fallback cho sản phẩm không có variants trong DB
+            productOptions = [{ color: 'Mặc định', size: 'FREESIZE', quantity: 999 }];
+          }
           renderColors();
           renderSizes();
           checkReady();
@@ -147,9 +151,15 @@
         })
         .catch(err => {
           console.error('Lỗi load options:', err);
-          toast.style.background = '#ff4444';
+          // Dù lỗi vẫn cho phép chọn freesize để không chặn mua hàng
+          productOptions = [{ color: 'Mặc định', size: 'FREESIZE', quantity: 999 }];
+          renderColors();
+          renderSizes();
+          checkReady();
+          modal.style.display = 'flex';
+          toast.style.background = '#ffb347';
           toast.style.color = 'white';
-          toast.textContent = 'Không tải được màu/size';
+          toast.textContent = 'Không tải được màu/size, dùng FREESIZE';
           toast.classList.add('show');
           setTimeout(() => toast.classList.remove('show'), 2000);
         });
