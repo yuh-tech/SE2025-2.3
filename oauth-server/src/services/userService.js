@@ -1,89 +1,35 @@
 /**
- * User Service - Xác thực và quản lý người dùng
- * 
- * Trong production, service này nên kết nối với database thực
- * (PostgreSQL, MongoDB, MySQL, etc.)
+ * User Service - Xác thực và quản lý người dùng (PostgreSQL + Prisma)
  */
 
-// Mock user database - trong thực tế nên lưu trong database
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
-// Phần này sau cũng sẽ lưu vào DB và hash password bằng bcrypt
-const USERS_DB = [
-  {
-    id: '1',
-    username: 'admin',
-    password: 'admin123', // Trong thực tế phải hash password (bcrypt)
-    email: 'admin@example.com',
-    email_verified: true,
-    name: 'Administrator',
-    given_name: 'Admin',
-    family_name: 'User',
-    nickname: 'admin',
-    picture: 'https://via.placeholder.com/150',
-    profile: 'https://example.com/admin',
-    website: 'https://example.com',
-    gender: 'male',
-    birthdate: '1990-01-01',
-    zoneinfo: 'Asia/Ho_Chi_Minh',
-    locale: 'vi-VN',
-    phone_number: '+84901234567',
-    phone_number_verified: true,
-    address: {
-      formatted: '123 Main St, Hanoi, Vietnam',
-      street_address: '123 Main St',
-      locality: 'Hanoi',
-      region: 'Hanoi',
-      postal_code: '100000',
-      country: 'Vietnam',
-    },
-    role: 'admin',
-    roles: ['admin', 'user'],
-    permissions: ['read', 'write', 'delete'],
-    organization: 'ACME Corporation',
-    department: 'IT',
-    updated_at: Math.floor(Date.now() / 1000),
-  },
-  {
-    id: '2',
-    username: 'user',
-    password: 'user123',
-    email: 'user@example.com',
-    email_verified: true,
-    name: 'John Doe',
-    given_name: 'John',
-    family_name: 'Doe',
-    nickname: 'johndoe',
-    picture: 'https://via.placeholder.com/150',
-    gender: 'male',
-    birthdate: '1995-05-15',
-    zoneinfo: 'Asia/Ho_Chi_Minh',
-    locale: 'vi-VN',
-    role: 'user',
-    roles: ['user'],
-    permissions: ['read'],
-    organization: 'ACME Corporation',
-    department: 'Sales',
-    updated_at: Math.floor(Date.now() / 1000),
-  },
-  {
-    id: '3',
-    username: 'demo',
-    password: 'demo123',
-    email: 'demo@example.com',
-    email_verified: true,
-    name: 'Demo User',
-    given_name: 'Demo',
-    family_name: 'User',
-    nickname: 'demo',
-    gender: 'other',
-    zoneinfo: 'Asia/Ho_Chi_Minh',
-    locale: 'en-US',
-    role: 'user',
-    roles: ['user'],
-    permissions: ['read'],
-    updated_at: Math.floor(Date.now() / 1000),
-  },
-];
+// Prisma client singleton
+const prisma = new PrismaClient();
+
+// Map User record từ DB sang object claims-friendly (không trả passwordHash)
+function mapUser(user) {
+  if (!user) return null;
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    email_verified: user.emailVerified,
+    name: user.name,
+    given_name: user.givenName,
+    family_name: user.familyName,
+    nickname: user.nickname || user.username,
+    picture: user.picture,
+    phone_number: user.phoneNumber,
+    phone_number_verified: user.phoneNumberVerified,
+    roles,
+    permissions,
+    updated_at: Math.floor(new Date(user.updatedAt || Date.now()).getTime() / 1000),
+  };
+}
 
 /**
  * Xác thực username và password
@@ -92,27 +38,18 @@ const USERS_DB = [
  * @returns {Object|null} User object nếu xác thực thành công, null nếu thất bại
  */
 async function authenticate(username, password) {
-  // Trong thực tế:
-  // 1. Query database để tìm user theo username
-  // 2. So sánh password hash (bcrypt.compare)
-  // 3. Kiểm tra account status (active, locked, etc.)
-  
-  const user = USERS_DB.find(u => u.username === username);
-  
-  if (!user) {
+  try {
+    const user = await prisma.user.findUnique({ where: { username } });
+    if (!user) return null;
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return null;
+
+    return mapUser(user);
+  } catch (err) {
+    console.error('Auth error:', err);
     return null;
   }
-  
-  // So sánh plain password (KHÔNG BAO GIỜ làm vậy trong production!)
-  // Trong production: await bcrypt.compare(password, user.passwordHash)
-  if (user.password !== password) {
-    return null;
-  }
-  
-  // Không trả về password ra ngoài
-  const { password: _, ...userWithoutPassword } = user;
-  
-  return userWithoutPassword;
 }
 
 /**
@@ -121,14 +58,13 @@ async function authenticate(username, password) {
  * @returns {Object|null} User object hoặc null
  */
 async function findById(userId) {
-  const user = USERS_DB.find(u => u.id === userId);
-  
-  if (!user) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return mapUser(user);
+  } catch (err) {
+    console.error('findById error:', err);
     return null;
   }
-  
-  const { password, ...userWithoutPassword } = user;
-  return userWithoutPassword;
 }
 
 /**
@@ -137,14 +73,13 @@ async function findById(userId) {
  * @returns {Object|null} User object hoặc null
  */
 async function findByUsername(username) {
-  const user = USERS_DB.find(u => u.username === username);
-  
-  if (!user) {
+  try {
+    const user = await prisma.user.findUnique({ where: { username } });
+    return mapUser(user);
+  } catch (err) {
+    console.error('findByUsername error:', err);
     return null;
   }
-  
-  const { password, ...userWithoutPassword } = user;
-  return userWithoutPassword;
 }
 
 /**
@@ -153,14 +88,13 @@ async function findByUsername(username) {
  * @returns {Object|null} User object hoặc null
  */
 async function findByEmail(email) {
-  const user = USERS_DB.find(u => u.email === email);
-  
-  if (!user) {
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    return mapUser(user);
+  } catch (err) {
+    console.error('findByEmail error:', err);
     return null;
   }
-  
-  const { password, ...userWithoutPassword } = user;
-  return userWithoutPassword;
 }
 
 /**
@@ -169,18 +103,32 @@ async function findByEmail(email) {
  * @returns {Object} Created user
  */
 async function createUser(userData) {
-  // Trong thực tế: hash password, validate data, save to DB
-  const newUser = {
-    id: String(USERS_DB.length + 1),
-    ...userData,
-    email_verified: false,
-    updated_at: Math.floor(Date.now() / 1000),
-  };
-  
-  USERS_DB.push(newUser);
-  
-  const { password, ...userWithoutPassword } = newUser;
-  return userWithoutPassword;
+  try {
+    const { password, ...rest } = userData;
+    const passwordHash = password ? await bcrypt.hash(password, 10) : '';
+
+    const user = await prisma.user.create({
+      data: {
+        username: rest.username,
+        passwordHash,
+        email: rest.email,
+        name: rest.name,
+        givenName: rest.given_name || rest.givenName,
+        familyName: rest.family_name || rest.familyName,
+        nickname: rest.nickname || rest.username,
+        picture: rest.picture,
+        phoneNumber: rest.phone_number || rest.phoneNumber,
+        emailVerified: !!rest.email_verified,
+        phoneNumberVerified: !!rest.phone_number_verified,
+        roles: rest.roles || [],
+        permissions: rest.permissions || [],
+      },
+    });
+    return mapUser(user);
+  } catch (err) {
+    console.error('createUser error:', err);
+    throw err;
+  }
 }
 
 /**
@@ -190,20 +138,24 @@ async function createUser(userData) {
  * @returns {Object|null} Updated user hoặc null
  */
 async function updateUser(userId, updates) {
-  const index = USERS_DB.findIndex(u => u.id === userId);
-  
-  if (index === -1) {
+  try {
+    const data = { ...updates };
+    if (updates.password) {
+      data.passwordHash = await bcrypt.hash(updates.password, 10);
+      delete data.password;
+    }
+    if (updates.roles) data.roles = updates.roles;
+    if (updates.permissions) data.permissions = updates.permissions;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+    return mapUser(user);
+  } catch (err) {
+    console.error('updateUser error:', err);
     return null;
   }
-  
-  USERS_DB[index] = {
-    ...USERS_DB[index],
-    ...updates,
-    updated_at: Math.floor(Date.now() / 1000),
-  };
-  
-  const { password, ...userWithoutPassword } = USERS_DB[index];
-  return userWithoutPassword;
 }
 
 /**
@@ -212,14 +164,13 @@ async function updateUser(userId, updates) {
  * @returns {boolean} true nếu xoá thành công
  */
 async function deleteUser(userId) {
-  const index = USERS_DB.findIndex(u => u.id === userId);
-  
-  if (index === -1) {
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+    return true;
+  } catch (err) {
+    console.error('deleteUser error:', err);
     return false;
   }
-  
-  USERS_DB.splice(index, 1);
-  return true;
 }
 
 /**
@@ -227,7 +178,8 @@ async function deleteUser(userId) {
  * @returns {Array} Array of users
  */
 async function getAllUsers() {
-  return USERS_DB.map(({ password, ...user }) => user);
+  const list = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } });
+  return list.map(mapUser);
 }
 
 /**
@@ -268,16 +220,13 @@ class Account {
    */
   static async findAccount(ctx, id, token) {
     const user = await findById(id);
-    
-    if (!user) {
-      return undefined;
-    }
-    
+    if (!user) return undefined;
     return new Account(id, user);
   }
 }
 
 export {
+  prisma,
   authenticate,
   findById,
   findByUsername,
