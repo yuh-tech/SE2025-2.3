@@ -108,13 +108,6 @@ router.post('/session/logout', express.urlencoded({ extended: false }), async (r
   });
   
   // Redirect về trang chủ hoặc logout success page
-  return res.redirect('/logout/success');
-});
-
-/**
- * GET /logout/success - Trang xác nhận end-session/logout (có nút quay lại đăng nhập)
- */
-router.get('/logout/success', (req, res) => {
   res.type('html');
   res.send(`
     <!DOCTYPE html>
@@ -122,7 +115,7 @@ router.get('/logout/success', (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Sign-out Success - OAuth Server</title>
+      <title>Đã đăng xuất - OAuth Server</title>
       <style>
         :root {
           --bg: #0f172a;
@@ -181,7 +174,8 @@ router.get('/logout/success', (req, res) => {
       <div class="card">
         <h1>✅ Đăng xuất thành công</h1>
         <p>Bạn đã đăng xuất khỏi hệ thống.</p>
-        <a class="btn" href="/">Về trang chủ OAuth</a>
+        <p>Bạn đã đăng xuất khỏi hệ thống. Cảm ơn bạn đã sử dụng dịch vụ!</p>
+        <a href="/login" class="btn">Đăng nhập lại</a>
       </div>
     </body>
     </html>

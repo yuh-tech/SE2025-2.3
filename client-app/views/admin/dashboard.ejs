@@ -16,13 +16,14 @@
       </a>
     </div>
 
-    <div class="stat-card card-customers">
+    <a href="/admin/customers" class="stat-card card-customers stat-link">
       <div class="card-icon">👥</div>
       <div class="card-info">
         <h3>Tổng khách hàng</h3>
         <p><%= typeof customersCount !== 'undefined' ? customersCount : 0 %></p>
       </div>
-    </div>
+    </a>
+
 
     <div class="stat-card card-orders">
       <div class="card-icon">🛒</div>
@@ -193,4 +194,12 @@
 
 /* ===== CHART ===== */
 canvas#revenueChart { width: 100% !important; max-height: 300px; }
+.stat-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+}
+
+
 </style>
