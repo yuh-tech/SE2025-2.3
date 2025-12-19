@@ -1,0 +1,73 @@
+<%- include('partials/header') %>
+
+<section class="success-page">
+  <div class="success-card">
+    <div class="success-icon">✓</div>
+    <h1>Đặt hàng thành công</h1>
+    <p>
+      Cảm ơn bạn đã mua sắm tại <strong>Sunshine Boutique</strong>.
+      Đơn hàng của bạn đã được ghi nhận.
+    </p>
+    <div class="success-meta">
+      <span>Mã đơn hàng:</span>
+      <strong>#<%= orderId %></strong>
+    </div>
+
+    <a href="/" class="success-btn">Tiếp tục mua sắm</a>
+    <a href="/products" class="success-link">Xem thêm sản phẩm</a>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
+<style>
+  .success-page { padding: 60px 16px 80px; }
+  .success-card {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 22px;
+    padding: 36px 28px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.12);
+    text-align: center;
+  }
+  .success-icon {
+    width: 76px; height: 76px;
+    margin: 0 auto 16px;
+    border-radius: 999px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #a8e6cf, #88d8b0);
+    color: #155d42;
+    font-size: 36px;
+    font-weight: 900;
+    box-shadow: 0 14px 30px rgba(136,216,176,0.35);
+  }
+  .success-card h1 { margin: 10px 0 8px; color: #ff6b9d; font-size: 34px; }
+  .success-card p { color: #4b5563; font-size: 16px; margin: 0 auto 14px; max-width: 520px; }
+  .success-meta {
+    display: inline-flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: #f0f8ff;
+    border: 1px solid #e0f4ff;
+    color: #023e8a;
+    margin: 10px 0 18px;
+  }
+  .success-btn {
+    display: inline-block;
+    padding: 14px 28px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ff6b9d, #ff8fb6);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    transition: 0.25s;
+  }
+  .success-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(255,107,157,0.35); }
+  .success-link { display:block; margin-top: 12px; color:#0077b6; text-decoration:none; font-weight: 600; }
+  .success-link:hover { text-decoration: underline; }
+</style>
+
+

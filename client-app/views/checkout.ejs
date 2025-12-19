@@ -1,10 +1,218 @@
 <%- include('partials/header') %>
 
-<h2>Checkout</h2>
-<p>Bạn đang thanh toán với tài khoản: <%= currentUser.displayName || currentUser.username %></p>
-<p>Đơn hàng demo (thực tế: tích hợp payment gateway)</p>
-<form method="POST" action="/checkout">
-  <button type="submit">Xác nhận đặt hàng</button>
-</form>
+<%
+  const cartItems = Array.isArray(cart) ? cart : [];
+  const subtotal = cartItems.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0);
+  const _data = checkoutData || {};
+  const paymentMethod = _data.paymentMethod || 'cod';
+  const useSaved = !!_data.useSaved;
+  const phoneVal = _data.phone || '';
+  const addressVal = _data.address || '';
+%>
+
+<section class="checkout-page">
+  <div class="checkout-container">
+    <h1 class="checkout-title">Thanh toán</h1>
+    <p class="checkout-subtitle">
+      Bạn đang thanh toán với tài khoản: <strong><%= currentUser.displayName || currentUser.username %></strong>
+    </p>
+
+    <% if (error) { %>
+      <div class="checkout-alert"><%= error %></div>
+    <% } %>
+
+    <form method="POST" action="/checkout" class="checkout-grid">
+      <!-- LEFT -->
+      <div class="checkout-left">
+        <div class="card">
+          <div class="card-title">Thông tin giao hàng</div>
+
+          <label class="field">
+            <span>Người nhận</span>
+            <input type="text" value="<%= currentUser.displayName || currentUser.username %>" disabled>
+          </label>
+
+          <div class="saved-row">
+            <label class="checkbox">
+              <input type="checkbox" id="useSaved" name="use_saved" value="1" <%= useSaved ? 'checked' : '' %>>
+              <span>Dùng thông tin đã lưu (nếu có)</span>
+            </label>
+            <div class="hint">Nếu bạn đã mua trước đây, hệ thống sẽ tự điền.</div>
+          </div>
+
+          <div id="shippingFields">
+            <label class="field">
+              <span>Số điện thoại</span>
+              <input type="text" name="phone" placeholder="VD: 0901 234 567" value="<%= phoneVal %>">
+            </label>
+            <label class="field">
+              <span>Địa chỉ giao hàng</span>
+              <textarea name="address" rows="3" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành..."><%= addressVal %></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Phương thức thanh toán</div>
+          <label class="radio">
+            <input type="radio" name="payment_method" value="cod" <%= paymentMethod === 'cod' ? 'checked' : '' %>>
+            <span>
+              <strong>Thanh toán khi nhận hàng (COD)</strong>
+              <div class="muted">Trả tiền mặt cho shipper khi nhận hàng.</div>
+            </span>
+          </label>
+
+          <label class="radio radio-disabled" title="Demo: có thể tích hợp sau">
+            <input type="radio" disabled>
+            <span>
+              <strong>Thẻ / Ví điện tử</strong>
+              <div class="muted">Sẽ hỗ trợ trong phiên bản tiếp theo.</div>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <aside class="checkout-right">
+        <div class="card summary">
+          <div class="card-title">Tóm tắt đơn hàng</div>
+
+          <div class="summary-items">
+            <% cartItems.forEach(i => { %>
+              <div class="summary-item">
+                <img src="<%= i.image %>" alt="<%= i.name %>">
+                <div class="summary-info">
+                  <div class="summary-name"><%= i.name %></div>
+                  <div class="summary-variant">Màu: <%= i.color %> • Size: <%= i.size %> • SL: <%= i.quantity %></div>
+                </div>
+                <div class="summary-price"><%= (Number(i.price) * Number(i.quantity)).toLocaleString('vi-VN') %> ₫</div>
+              </div>
+            <% }) %>
+          </div>
+
+          <div class="summary-line">
+            <span>Tạm tính</span>
+            <strong><%= subtotal.toLocaleString('vi-VN') %> ₫</strong>
+          </div>
+          <div class="summary-line">
+            <span>Phí vận chuyển</span>
+            <strong>0 ₫</strong>
+          </div>
+          <div class="summary-total">
+            <span>Tổng thanh toán</span>
+            <strong><%= subtotal.toLocaleString('vi-VN') %> ₫</strong>
+          </div>
+
+          <button type="submit" class="place-order">Xác nhận đặt hàng</button>
+          <a class="back-cart" href="/cart">Quay lại giỏ hàng</a>
+        </div>
+      </aside>
+    </form>
+  </div>
+</section>
 
 <%- include('partials/footer') %>
+
+<style>
+  .checkout-page { padding: 30px 0 60px; }
+  .checkout-container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+  .checkout-title { text-align: center; font-size: 34px; color: #ff6b9d; margin: 10px 0 6px; }
+  .checkout-subtitle { text-align: center; color: #4b5563; margin-bottom: 22px; }
+  .checkout-alert {
+    max-width: 820px;
+    margin: 0 auto 18px;
+    background: #fff3cd;
+    color: #7a5b00;
+    border: 1px solid #ffe69c;
+    padding: 12px 14px;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  }
+
+  .checkout-grid { display: grid; grid-template-columns: 1fr 420px; gap: 22px; align-items: start; }
+  .card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  .card-title { font-weight: 700; color: #023e8a; font-size: 18px; margin-bottom: 14px; }
+  .field { display: block; margin-bottom: 12px; }
+  .field span { display:block; font-size: 13px; color:#4b5563; margin-bottom: 6px; }
+  .field input, .field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    font-size: 15px;
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus { border-color: #90e0ef; box-shadow: 0 0 0 3px rgba(144,224,239,0.35); }
+  .saved-row { display:flex; align-items:center; justify-content:space-between; gap: 12px; margin: 6px 0 12px; }
+  .checkbox { display:flex; align-items:center; gap: 10px; color:#023e8a; font-weight: 600; }
+  .checkbox input { width: 16px; height: 16px; }
+  .hint { color:#6b7280; font-size: 13px; }
+
+  .radio { display:flex; gap: 10px; padding: 12px 12px; border:1px solid #eee; border-radius: 14px; margin-bottom: 10px; cursor:pointer; }
+  .radio input { margin-top: 3px; }
+  .radio strong { color:#111827; }
+  .muted { color:#6b7280; font-size: 13px; margin-top: 3px; }
+  .radio-disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .summary { position: sticky; top: 100px; }
+  .summary-items { display:flex; flex-direction:column; gap: 12px; max-height: 360px; overflow:auto; padding-right: 4px; }
+  .summary-item { display:grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; }
+  .summary-item img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; border: 2px solid #a8e6cf; }
+  .summary-name { font-weight: 700; color:#023e8a; font-size: 14px; }
+  .summary-variant { color:#6b7280; font-size: 12.5px; margin-top: 2px; }
+  .summary-price { font-weight: 800; color:#ff6b9d; font-size: 14px; }
+  .summary-line { display:flex; justify-content:space-between; margin-top: 12px; color:#374151; }
+  .summary-total { display:flex; justify-content:space-between; margin-top: 10px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 16px; }
+  .summary-total strong { color:#023e8a; }
+  .place-order {
+    width: 100%;
+    margin-top: 14px;
+    padding: 13px 14px;
+    border: none;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 16px;
+    background: linear-gradient(135deg, #ff6b9d, #ff8fb6);
+    color: #fff;
+    cursor: pointer;
+    transition: 0.25s;
+  }
+  .place-order:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(255,107,157,0.35); }
+  .back-cart { display:block; text-align:center; margin-top: 10px; color:#0077b6; text-decoration:none; font-weight: 600; }
+  .back-cart:hover { text-decoration: underline; }
+
+  @media (max-width: 1024px) {
+    .checkout-grid { grid-template-columns: 1fr; }
+    .summary { position: static; }
+  }
+</style>
+
+<script>
+  // Nếu user tick "dùng thông tin đã lưu": ẩn phần nhập (nhưng vẫn cho nhập nếu chưa có data)
+  (function () {
+    const cb = document.getElementById('useSaved');
+    const fields = document.getElementById('shippingFields');
+    if (!cb || !fields) return;
+
+    const phoneInput = fields.querySelector('input[name=\"phone\"]');
+    const addressInput = fields.querySelector('textarea[name=\"address\"]');
+
+    function apply() {
+      // Nếu tick thì vẫn hiển thị input nhưng gợi ý user không cần nhập (backend sẽ ưu tiên saved nếu có)
+      fields.style.opacity = cb.checked ? '0.9' : '1';
+
+      const hasSavedValues = !!((phoneInput?.value || '').trim() && (addressInput?.value || '').trim());
+      const shouldLock = cb.checked && hasSavedValues;
+      if (phoneInput) phoneInput.disabled = shouldLock;
+      if (addressInput) addressInput.disabled = shouldLock;
+    }
+    cb.addEventListener('change', apply);
+    apply();
+  })();
+</script>
