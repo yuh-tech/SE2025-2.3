@@ -32,6 +32,7 @@
 
 <%- include('partials/quick-add-modal') %>
 <div id="toast"></div>
+<div id="__ctx" data-logged-in="<%= currentUser ? '1' : '0' %>" style="display:none;"></div>
 
 <%- include('partials/footer') %>
 
@@ -53,7 +54,7 @@
 
 <script>
   // FIX 100%: luôn đúng dù currentUser là null
-  const isLoggedIn = !!<%- JSON.stringify(currentUser) %>;
+  const isLoggedIn = document.getElementById('__ctx')?.dataset?.loggedIn === '1';
   const modal = document.getElementById('quickAddModal');
   const toast = document.getElementById('toast');
 
