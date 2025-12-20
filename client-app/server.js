@@ -31,9 +31,19 @@ const dbAll = promisify(productDB.all.bind(productDB));
 
 const dbCustomerAll = promisify(db.all.bind(db));
 const dbCustomerGet = promisify(db.get.bind(db));           // customers.db
-
+const dbCustomerRun = promisify(db.run.bind(db));
 const dbOrderGet = promisify(orderDB.get.bind(orderDB));    // orders.db
 const dbOrderAll = promisify(orderDB.all.bind(orderDB));
+const dbOrderRun = promisify(orderDB.run.bind(orderDB));
+
+function runWithLastId(database, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    database.run(sql, params, function (err) {
+      if (err) return reject(err);
+      resolve({ lastID: this.lastID, changes: this.changes });
+    });
+  });
+}
 
 
 const multer = require('multer');
@@ -57,7 +67,7 @@ const upload = multer({ storage: storage });
 
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
 // Export the app for external start scripts / tests
 module.exports = app;
 
@@ -106,7 +116,7 @@ const OAUTH_CONFIG = {
   issuer: process.env.OAUTH_ISSUER || 'http://localhost:3000',
   client_id: process.env.OAUTH_CLIENT_ID || 'my_app',
   client_secret: process.env.OAUTH_CLIENT_SECRET || 'demo-client-secret',
-  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:8080/callback',
+  redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:3001/callback',
   scope: 'openid profile email offline_access',
   authorization_endpoint: '/authorize',
   token_endpoint: '/token',
@@ -114,6 +124,20 @@ const OAUTH_CONFIG = {
   logout_endpoint: '/logout',
 };
 
+
+// Helper: add column if missing
+function ensureColumn(database, table, column, type) {
+  database.all(`PRAGMA table_info(${table})`, (err, rows) => {
+    if (err) return console.error(err);
+    const exists = rows.some(r => r.name === column);
+    if (!exists) {
+      database.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`, (e) => {
+        if (e) console.error(`Cannot add column ${column} on ${table}:`, e.message);
+        else console.log(`Added column ${column} to ${table}`);
+      });
+    }
+  });
+}
 
 db.serialize(() => {
   db.run(`
@@ -125,6 +149,10 @@ db.serialize(() => {
       role TEXT
     )
   `);
+
+  // Bổ sung phone/address nếu chưa có (lưu info giao hàng)
+  ensureColumn(db, 'customers', 'phone', 'TEXT');
+  ensureColumn(db, 'customers', 'address', 'TEXT');
 });
 
 // Tạo bảng products
@@ -210,6 +238,15 @@ orderDB.serialize(() => {
       FOREIGN KEY(product_id) REFERENCES products(id)
     )
   `);
+
+  // Bổ sung metadata đơn hàng + biến thể
+  ensureColumn(orderDB, 'orders', 'status', "TEXT DEFAULT 'processing'");
+  ensureColumn(orderDB, 'orders', 'total', 'INTEGER');
+  ensureColumn(orderDB, 'orders', 'phone', 'TEXT');
+  ensureColumn(orderDB, 'orders', 'address', 'TEXT');
+  ensureColumn(orderDB, 'orders', 'payment_method', 'TEXT');
+  ensureColumn(orderDB, 'order_items', 'color', 'TEXT');
+  ensureColumn(orderDB, 'order_items', 'size', 'TEXT');
 });
 
 console.log('checkpoint B - productDB schema ensured');
@@ -312,11 +349,24 @@ console.log('checkpoint C - EJS configured, views path set');
 // ==================================
 // 6. ROUTES — KHÁCH HÀNG
 // ==================================
-app.get(['/', '/home'], (req, res) => {
-  res.render('home', {
-    title: 'Sunshine Boutique – Thời trang nhẹ nhàng',
-    products: allProducts
-  });
+app.get(['/', '/home'], async (req, res) => {
+  const effectivePriceSql = `CASE WHEN status='sale' AND salePrice > 0 THEN salePrice ELSE price END`;
+  try {
+    const rows = await dbAll(
+      `SELECT *, ${effectivePriceSql} AS effectivePrice FROM products ORDER BY createdAt DESC LIMIT 8`
+    );
+    const products = rows && rows.length ? rows : allProducts;
+    res.render('home', {
+      title: 'Sunshine Boutique – Thời trang nhẹ nhàng',
+      products
+    });
+  } catch (err) {
+    console.error('home query error:', err);
+    res.render('home', {
+      title: 'Sunshine Boutique – Thời trang nhẹ nhàng',
+      products: allProducts
+    });
+  }
 });
 
 // ----- LOGIN -----
@@ -536,7 +586,7 @@ app.get('/auth/logout', (req, res) => {
   req.session.destroy(() => {
     // Redirect đến OAuth server logout endpoint
     const logoutUrl = new URL(OAUTH_CONFIG.logout_endpoint, OAUTH_CONFIG.issuer);
-    logoutUrl.searchParams.set('post_logout_redirect_uri', 'http://localhost:8080');
+    logoutUrl.searchParams.set('post_logout_redirect_uri', 'http://localhost:3001');
     
     if (idToken) {
       logoutUrl.searchParams.set('id_token_hint', idToken);
@@ -612,31 +662,85 @@ app.post('/logout', (req, res) => {
 });
 
 // ----- PRODUCTS -----
-app.get('/products', (req, res) => {
+app.get('/products', async (req, res) => {
   console.log('marker: inside /products route definition');
-  const query = "SELECT * FROM products";
 
-  productDB.all(query, [], (err, rows) => {
-    if (err) {
-      console.error('Lỗi khi đọc products từ DB:', err);
-      const categories = ['all', ...new Set(allProducts.map(p => p.category))];
-      return res.render('products', {
-        title: 'Tất cả sản phẩm',
-        products: allProducts,
-        categories
-      });
-    }
+  // Filters
+  const { search = '', category = 'all', min = '', max = '', sort = '' } = req.query;
+  const searchNorm = String(search || '').trim();
 
-    // Nếu DB rỗng (ví dụ môi trường dev chưa có seed), fallback sang products.json
+  // "Giá thực" = salePrice nếu đang sale và salePrice > 0, ngược lại dùng price
+  const effectivePriceSql = `CASE WHEN status='sale' AND salePrice > 0 THEN salePrice ELSE price END`;
+
+  const where = [];
+  const params = [];
+
+  if (searchNorm) {
+    where.push('(LOWER(name) LIKE ? OR LOWER(category) LIKE ? OR LOWER(shortDescription) LIKE ?)');
+    const q = `%${searchNorm.toLowerCase()}%`;
+    params.push(q, q, q);
+  }
+
+  if (category && category !== 'all') {
+    where.push('category = ?');
+    params.push(category);
+  }
+
+  const minNum = min === '' ? null : Number(min);
+  const maxNum = max === '' ? null : Number(max);
+  if (Number.isFinite(minNum)) {
+    where.push(`${effectivePriceSql} >= ?`);
+    params.push(minNum);
+  }
+  if (Number.isFinite(maxNum)) {
+    where.push(`${effectivePriceSql} <= ?`);
+    params.push(maxNum);
+  }
+
+  const orderBy =
+    sort === 'asc' ? `ORDER BY ${effectivePriceSql} ASC` :
+    sort === 'desc' ? `ORDER BY ${effectivePriceSql} DESC` : '';
+
+  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const sql = `
+    SELECT
+      *,
+      ${effectivePriceSql} AS effectivePrice
+    FROM products
+    ${whereClause}
+    ${orderBy}
+  `;
+
+  try {
+    const rows = await dbAll(sql, params);
     const productsToRender = (rows && rows.length > 0) ? rows : allProducts;
-    const categories = ['all', ...new Set(productsToRender.map(p => p.category))];
+
+    // categories list (prefer DB)
+    let categories = ['all', ...new Set(productsToRender.map(p => p.category).filter(Boolean))];
+    try {
+      const catRows = await dbAll('SELECT DISTINCT category FROM products');
+      const catList = (catRows || []).map(r => r.category).filter(Boolean);
+      if (catList.length > 0) categories = ['all', ...catList];
+    } catch (e) {
+      // ignore - fallback already computed
+    }
 
     res.render('products', {
       title: 'Tất cả sản phẩm',
       products: productsToRender,
-      categories
+      categories,
+      filters: { search: searchNorm, category, min, max, sort }
     });
-  });
+  } catch (err) {
+    console.error('Lỗi khi đọc products từ DB:', err);
+    const categories = ['all', ...new Set(allProducts.map(p => p.category).filter(Boolean))];
+    res.render('products', {
+      title: 'Tất cả sản phẩm',
+      products: allProducts,
+      categories,
+      filters: { search: searchNorm, category, min, max, sort }
+    });
+  }
 });
 
 // API LẤY TÙY CHỌN SẢN PHẨM (MÀU, SIZE, SỐ LƯỢNG)
@@ -811,33 +915,164 @@ app.post('/cart/remove', (req, res) => {
 // ==================================
 // 8. CHECKOUT → TẠO ĐƠN HÀNG
 // ==================================
-app.get('/checkout', (req, res) => {
+app.get('/checkout', async (req, res) => {
   if (!req.session.user) return res.redirect('/login');
-  res.render('checkout', { title: 'Thanh toán' });
+  const cart = req.session.cart || [];
+  if (cart.length === 0) return res.redirect('/cart');
+
+  const username = req.session.user.username;
+  let customer;
+  try {
+    customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+  } catch (e) {
+    customer = null;
+  }
+  if (!customer) return res.redirect('/login');
+
+  // saved shipping (nếu có)
+  let saved = { phone: '', address: '' };
+  try {
+    const row = await dbCustomerGet('SELECT phone, address FROM customers WHERE id = ?', [customer.id]);
+    saved = { phone: row?.phone || '', address: row?.address || '' };
+  } catch (e) {
+    saved = { phone: '', address: '' };
+  }
+
+  // đã từng mua? (orders.db)
+  let hasOrders = false;
+  try {
+    const r = await dbOrderGet('SELECT COUNT(*) AS c FROM orders WHERE customer_id = ?', [customer.id]);
+    hasOrders = Number(r?.c || 0) > 0;
+  } catch (e) {
+    hasOrders = false;
+  }
+
+  const total = cart.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0);
+  const canUseSaved = !!(saved.phone && saved.address);
+
+  res.render('checkout', {
+    title: 'Thanh toán',
+    cart,
+    error: null,
+    checkoutData: {
+      useSaved: canUseSaved || hasOrders,
+      phone: canUseSaved ? saved.phone : '',
+      address: canUseSaved ? saved.address : '',
+      paymentMethod: 'cod',
+      total
+    }
+  });
 });
 
-app.post('/checkout', (req, res) => {
+app.get('/checkout/success/:id', (req, res) => {
+  if (!req.session.user) return res.redirect('/login');
+  res.render('checkout-success', { title: 'Đặt hàng thành công', orderId: req.params.id });
+});
+
+app.post('/checkout', async (req, res) => {
   if (!req.session.user) return res.redirect('/login');
 
   const cart = req.session.cart || [];
   if (cart.length === 0) return res.redirect('/cart');
 
-  const newOrder = {
-    id: Date.now(),
-    user: req.session.user.username,
-    items: cart,
-    total: cart.reduce((s, i) => s + i.price * i.quantity, 0),
-    status: 'processing',
-    tracking: ['Đơn hàng đã được tạo'],
-    createdAt: new Date().toISOString()
-  };
+  const username = req.session.user.username;
 
-  orders.push(newOrder);
-  saveJSON(ordersPath, orders);
+  let customer;
+  try {
+    customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+  } catch (e) {
+    customer = null;
+  }
 
-  req.session.cart = [];
+  if (!customer) return res.redirect('/login');
 
-  res.redirect('/orders/' + newOrder.id);
+  // Tính tổng
+  const total = cart.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0);
+
+  // Payment method (hiện tại: COD)
+  const paymentMethod = (req.body.payment_method || 'cod').toLowerCase();
+
+  // Lấy thông tin giao hàng: ưu tiên dùng đã lưu nếu user chọn
+  const useSaved = String(req.body.use_saved || '') === '1';
+  let phone = '';
+  let address = '';
+
+  // Thử đọc phone/address từ DB (nếu chưa migrate kịp thì catch)
+  let saved = { phone: null, address: null };
+  try {
+    const row = await dbCustomerGet('SELECT phone, address FROM customers WHERE id = ?', [customer.id]);
+    saved = { phone: row?.phone || null, address: row?.address || null };
+  } catch (e) {
+    saved = { phone: null, address: null };
+  }
+
+  if (useSaved && saved.phone && saved.address) {
+    phone = saved.phone;
+    address = saved.address;
+  } else {
+    phone = String(req.body.phone || '').trim();
+    address = String(req.body.address || '').trim();
+  }
+
+  // Validate
+  const phoneOk = /^[0-9+\s()-]{8,20}$/.test(phone);
+  if (!phoneOk || !address) {
+    return res.render('checkout', {
+      title: 'Thanh toán',
+      cart,
+      error: 'Vui lòng nhập SĐT hợp lệ và địa chỉ giao hàng.',
+      checkoutData: {
+        useSaved,
+        phone,
+        address,
+        paymentMethod,
+        total
+      }
+    });
+  }
+
+  // Lưu lại phone/address vào customers (nếu có cột)
+  try {
+    await dbCustomerRun('UPDATE customers SET phone = ?, address = ? WHERE id = ?', [phone, address, customer.id]);
+  } catch (e) {
+    // ignore (nếu DB chưa có cột do server chưa restart)
+  }
+
+  // Tạo order trong orders.db
+  try {
+    const createdAt = new Date().toISOString();
+    const insert = await runWithLastId(
+      orderDB,
+      'INSERT INTO orders (customer_id, created_at, status, total, phone, address, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [customer.id, createdAt, 'processing', total, phone, address, paymentMethod]
+    );
+    const orderId = insert.lastID;
+
+    for (const item of cart) {
+      await dbOrderRun(
+        'INSERT INTO order_items (order_id, product_id, quantity, price, color, size) VALUES (?, ?, ?, ?, ?, ?)',
+        [orderId, item.id, Number(item.quantity), Number(item.price), item.color || '', item.size || '']
+      );
+    }
+
+    req.session.cart = [];
+
+    return res.redirect('/checkout/success/' + orderId);
+  } catch (err) {
+    console.error('Checkout error:', err);
+    return res.render('checkout', {
+      title: 'Thanh toán',
+      cart,
+      error: 'Có lỗi khi tạo đơn hàng. Vui lòng thử lại.',
+      checkoutData: {
+        useSaved,
+        phone,
+        address,
+        paymentMethod,
+        total
+      }
+    });
+  }
 });
 
 // ==================================
@@ -1613,7 +1848,7 @@ if (process.env.NODE_ENV !== 'production') {
     res.json({ routes });
   });
 }
-module.exports = app;
+// (module.exports already set near the top)
 // Note: listening is performed by start_server.js in development.
 // Remove direct app.listen here to avoid double-listen when required.
 

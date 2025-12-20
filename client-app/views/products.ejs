@@ -57,32 +57,30 @@
             </div>
           <% } else { %>
             <% products.forEach(p => { %>
+              <%
+                const effective = (typeof p.effectivePrice !== 'undefined' && p.effectivePrice !== null)
+                  ? Number(p.effectivePrice)
+                  : ((p.status === 'sale' && Number(p.salePrice) > 0) ? Number(p.salePrice) : Number(p.price));
+                const original = Number(p.price);
+                const isSale = (p.status === 'sale' && Number(p.salePrice) > 0 && effective < original);
+              %>
               <div class="product-card">
                 <div class="img-wrap">
                   <img src="<%= p.image %>" alt="<%= p.name %>">
                 </div>
                 <div class="info">
                   <h3><%= p.name %></h3>
-
-                  <% if (p.salePrice && p.salePrice < p.price) { %>
-                    <div class="price-box">
-                      <div class="price-old">
-                        <%= p.price.toLocaleString('vi-VN') %> ₫
-                      </div>
-                      <div class="price-sale">
-                        <%= p.salePrice.toLocaleString('vi-VN') %> ₫
-                      </div>
-                    </div>
-                  <% } else { %>
-                    <p class="price">
-                      <%= p.price.toLocaleString('vi-VN') %> ₫
-                    </p>
-                  <% } %>
+                  <div class="price-wrap">
+                    <p class="price"><%= effective.toLocaleString('vi-VN') %> ₫</p>
+                    <% if (isSale) { %>
+                      <p class="price-original"><%= original.toLocaleString('vi-VN') %> ₫</p>
+                    <% } %>
+                  </div>
 
                   <button class="quick-add-btn"
                     data-id="<%= p.id %>"
                     data-name="<%= p.name %>"
-                    data-price="<%= (p.salePrice && p.salePrice < p.price) ? p.salePrice : p.price %>"
+                    data-price="<%= effective %>"
                     data-image="<%= p.image %>">
                     Thêm vào giỏ
                   </button>
@@ -184,6 +182,9 @@
     -webkit-box-orient: vertical;
   }
   .price { color: #ff6b9d; font-size: 19px; font-weight: bold; margin: 10px 0; }
+  .price-wrap { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 10px 0; }
+  .price-wrap .price { margin: 0; }
+  .price-original { margin: 0; color: #999; font-size: 14px; text-decoration: line-through; }
 
   .quick-add-btn {
     width: 100%;

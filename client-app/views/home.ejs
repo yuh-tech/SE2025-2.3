@@ -14,12 +14,24 @@
       <div class="product-card">
         <img src="<%= p.image %>" alt="<%= p.name %>">
         <h3><%= p.name %></h3>
-        <p class="price"><%= p.price.toLocaleString('vi-VN') %> ₫</p>
+        <% 
+          const effective = (typeof p.effectivePrice !== 'undefined' && p.effectivePrice !== null)
+            ? Number(p.effectivePrice)
+            : ((p.status === 'sale' && Number(p.salePrice) > 0) ? Number(p.salePrice) : Number(p.price));
+          const original = Number(p.price);
+          const isSale = (p.status === 'sale' && Number(p.salePrice) > 0 && effective < original);
+        %>
+        <div class="price-wrap">
+          <p class="price"><%= effective.toLocaleString('vi-VN') %> ₫</p>
+          <% if (isSale) { %>
+            <p class="price-original"><%= original.toLocaleString('vi-VN') %> ₫</p>
+          <% } %>
+        </div>
 
         <button class="quick-add-btn"
                 data-id="<%= p.id %>"
                 data-name="<%= p.name %>"
-                data-price="<%= p.price %>"
+                data-price="<%= effective %>"
                 data-image="<%= p.image %>">
           Thêm vào giỏ
         </button>
@@ -32,6 +44,7 @@
 
 <%- include('partials/quick-add-modal') %>
 <div id="toast"></div>
+<div id="__ctx" data-logged-in="<%= currentUser ? '1' : '0' %>" style="display:none;"></div>
 
 <%- include('partials/footer') %>
 
@@ -52,118 +65,168 @@
 </style>
 
 <script>
-  // FIX 100%: luôn đúng dù currentUser là null
-  const isLoggedIn = !!<%- JSON.stringify(currentUser) %>;
-  const modal = document.getElementById('quickAddModal');
-  const toast = document.getElementById('toast');
+document.addEventListener("DOMContentLoaded", () => {
 
-  document.querySelectorAll('.quick-add-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
+  const isLoggedIn = document.getElementById('__ctx')?.dataset?.loggedIn === '1';
+  const modal = document.getElementById("quickAddModal");
+  const toast = document.getElementById("toast");
+
+  let selectedColor = null;
+  let selectedSize = null;
+  let currentProductId = null;
+  window.productOptions = [];
+
+  /* ================= CLICK THÊM GIỎ ================= */
+  document.querySelectorAll(".quick-add-btn").forEach(btn => {
+    btn.addEventListener("click", function () {
+
       if (!isLoggedIn) {
-        toast.style.background = '#ffb347'; toast.style.color = 'white';
-        toast.textContent = 'Vui lòng đăng nhập để mua sắm nhé';
-        toast.classList.add('show');
+        toast.style.background = "#ffb347";
+        toast.style.color = "white";
+        toast.textContent = "Bạn cần đăng nhập để mua hàng";
+        toast.classList.add("show");
         setTimeout(() => {
-          toast.classList.remove('show');
-          location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+          toast.classList.remove("show");
+          location.href = "/login";
         }, 1200);
         return;
       }
 
-      document.getElementById('modalImg').src = this.dataset.image;
-      document.getElementById('modalName').textContent = this.dataset.name;
-      document.getElementById('modalPrice').textContent =
-        parseInt(this.dataset.price).toLocaleString('vi-VN') + ' ₫';
+      currentProductId = this.dataset.id;
 
-      document.querySelectorAll('#quickAddModal .color-btn, #quickAddModal .size-btn')
-        .forEach(b => b.classList.remove('selected'));
-      document.querySelector('.modal-warning').style.display = 'none';
+      document.getElementById("modalImg").src = this.dataset.image;
+      document.getElementById("modalName").textContent = this.dataset.name;
+      document.getElementById("modalPrice").textContent =
+        Number(this.dataset.price).toLocaleString("vi-VN") + " ₫";
 
-      const addBtn = document.getElementById('modalAddBtn');
-      addBtn.disabled = true;
-      addBtn.classList.remove('enabled');
-      addBtn.dataset.id = this.dataset.id;
+      selectedColor = null;
+      selectedSize = null;
 
-      modal.style.display = 'flex';
+      fetch(`/api/product-options/${currentProductId}`)
+        .then(res => res.json())
+        .then(data => {
+          window.productOptions = data;
+          renderColors();
+          renderSizes();
+          checkReady();
+          modal.style.display = "flex";
+        });
     });
   });
 
-  if (isLoggedIn) {
-    let selectedColor = '';
-    let selectedSize = '';
+  /* ================= RENDER COLOR ================= */
+  function renderColors() {
+    const box = document.getElementById("colorOptions");
+    box.innerHTML = "";
 
-    document.querySelectorAll('#quickAddModal .color-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('#quickAddModal .color-btn').forEach(b => b.classList.remove('selected'));
-        this.classList.add('selected');
-        selectedColor = this.dataset.color;
+    const colors = [...new Set(window.productOptions.map(o => o.color))];
+
+    colors.forEach(color => {
+      const btn = document.createElement("button");
+      btn.textContent = color;
+      btn.className = "option-btn";
+
+      if (!isColorAvailable(color)) btn.disabled = true;
+      if (color === selectedColor) btn.classList.add("selected");
+
+      btn.onclick = () => {
+        selectedColor = color;
+        selectedSize = null;
+        renderColors();
+        renderSizes();
         checkReady();
-      });
+      };
+
+      box.appendChild(btn);
     });
-
-    document.querySelectorAll('#quickAddModal .size-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('#quickAddModal .size-btn').forEach(b => b.classList.remove('selected'));
-        this.classList.add('selected');
-        selectedSize = this.dataset.size;
-        checkReady();
-      });
-    });
-
-    function checkReady() {
-      const addBtn = document.getElementById('modalAddBtn');
-      if (selectedColor && selectedSize) {
-        addBtn.disabled = false;
-        addBtn.classList.add('enabled');
-      } else {
-        addBtn.disabled = true;
-        addBtn.classList.remove('enabled');
-      }
-    }
-
-    // ĐOẠN QUAN TRỌNG NHẤT – ĐÃ SỬA XONG 100%
-    document.getElementById('modalAddBtn').addEventListener('click', function() {
-      if (!selectedColor || !selectedSize) {
-        document.querySelector('.modal-warning').style.display = 'block';
-        return;
-      }
-
-      fetch(`/cart/add/${this.dataset.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ color: selectedColor, size: selectedSize })
-      })
-      .then(r => {
-        if (!r.ok) throw new Error('Lỗi mạng');
-        return r.json();
-      })
-      .then(data => {
-        if (data.success) {
-          modal.style.display = 'none';
-          toast.style.background = '#a8e6cf';
-          toast.style.color = '#155d42';
-          toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ!`;
-          toast.classList.add('show');
-          setTimeout(() => toast.classList.remove('show'), 3000);
-
-          // ← ĐÂY LÀ DÒNG CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG REALTIME – HOẠT ĐỘNG 100%
-          if (window.updateCartBadge && typeof data.cartCount === 'number') {
-            window.updateCartBadge(data.cartCount);
-          }
-        }
-      })
-      .catch(err => {
-        console.error('Lỗi thêm vào giỏ:', err);
-        toast.style.background = '#ff4444';
-        toast.style.color = 'white';
-        toast.textContent = 'Có lỗi xảy ra!';
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
-      });
-    });
-
-    // Đóng modal
-    document.querySelector('.modal-close')?.addEventListener('click', () => modal.style.display = 'none');
-    window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
   }
+
+  /* ================= RENDER SIZE ================= */
+  function renderSizes() {
+    const box = document.getElementById("sizeOptions");
+    box.innerHTML = "";
+
+    const sizes = [...new Set(window.productOptions.map(o => o.size))];
+
+    sizes.forEach(size => {
+      const btn = document.createElement("button");
+      btn.textContent = size;
+      btn.className = "option-btn";
+
+      if (!isSizeAvailable(size)) btn.disabled = true;
+      if (size === selectedSize) btn.classList.add("selected");
+
+      btn.onclick = () => {
+        selectedSize = size;
+        renderColors();
+        renderSizes();
+        checkReady();
+      };
+
+      box.appendChild(btn);
+    });
+  }
+
+  function isColorAvailable(color) {
+    return window.productOptions.some(
+      o =>
+        o.color === color &&
+        (!selectedSize || o.size === selectedSize) &&
+        o.quantity > 0
+    );
+  }
+
+  function isSizeAvailable(size) {
+    return window.productOptions.some(
+      o =>
+        o.size === size &&
+        (!selectedColor || o.color === selectedColor) &&
+        o.quantity > 0
+    );
+  }
+
+  function checkReady() {
+    const btn = document.getElementById("modalAddBtn");
+    btn.disabled = !(selectedColor && selectedSize);
+  }
+
+  /* ================= ADD TO CART ================= */
+  document.getElementById("modalAddBtn").addEventListener("click", () => {
+    if (!selectedColor || !selectedSize) return;
+
+    fetch(`/cart/add/${currentProductId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        color: selectedColor,
+        size: selectedSize
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        modal.style.display = "none";
+        toast.style.background = "#a8e6cf";
+        toast.style.color = "#155d42";
+        toast.textContent = `Đã thêm ${selectedSize} - ${selectedColor} vào giỏ`;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 2500);
+
+        if (window.updateCartBadge && typeof data.cartCount === "number") {
+          window.updateCartBadge(data.cartCount);
+        }
+      }
+    });
+  });
+
+  /* ================= CLOSE MODAL ================= */
+  document.querySelector(".modal-close")?.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  window.addEventListener("click", e => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+});
 </script>

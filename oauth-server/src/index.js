@@ -119,193 +119,162 @@ app.get('/', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>OAuth 2.0 Authorization Server</title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+          --bg: #0f172a;
+          --card: #0b1220;
+          --muted: #94a3b8;
+          --text: #e2e8f0;
+          --accent: #8b5cf6;
+          --border: #1f2937;
+        }
+        * { box-sizing: border-box; }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          margin: 0;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: radial-gradient(circle at 20% 20%, rgba(139,92,246,0.18), transparent 24%),
+                      radial-gradient(circle at 80% 0%, rgba(34,197,94,0.12), transparent 20%),
+                      var(--bg);
+          color: var(--text);
           min-height: 100vh;
-          padding: 20px;
+          padding: 32px 16px;
+          display: flex;
+          justify-content: center;
         }
         .container {
-          max-width: 1200px;
-          margin: 0 auto;
+          width: 100%;
+          max-width: 1080px;
         }
-        .header {
-          background: white;
-          padding: 30px;
-          border-radius: 10px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-          margin-bottom: 30px;
-        }
-        .header h1 {
-          color: #2d3748;
-          font-size: 32px;
-          margin-bottom: 10px;
-        }
-        .header p {
-          color: #718096;
-          font-size: 16px;
-        }
-        .user-info {
-          background: #edf2f7;
-          padding: 15px 20px;
-          border-radius: 5px;
-          margin-top: 20px;
+        .hero {
+          background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 18px;
+          padding: 24px 28px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+          backdrop-filter: blur(10px);
+          margin-bottom: 20px;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 16px;
         }
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 20px;
-          margin-bottom: 30px;
-        }
-        .card {
-          background: white;
-          padding: 25px;
-          border-radius: 10px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-        .card h2 {
-          color: #2d3748;
-          font-size: 20px;
-          margin-bottom: 15px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .card ul {
-          list-style: none;
-        }
-        .card li {
-          padding: 8px 0;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .card li:last-child {
-          border-bottom: none;
-        }
-        .card a {
-          color: #667eea;
-          text-decoration: none;
-          font-weight: 500;
-        }
-        .card a:hover {
-          text-decoration: underline;
-        }
-        .endpoint {
-          background: #f7fafc;
-          padding: 8px 12px;
-          border-radius: 5px;
-          font-family: 'Courier New', monospace;
-          font-size: 13px;
-          color: #2d3748;
-          margin: 5px 0;
-          display: block;
+        .brand h1 { margin: 0; font-size: 26px; letter-spacing: -0.2px; }
+        .brand p { margin: 6px 0 0 0; color: var(--muted); }
+        .user-box {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.06);
+          padding: 12px 14px;
+          border-radius: 12px;
+          font-size: 14px;
+          color: #cbd5e1;
         }
         .btn {
           display: inline-block;
-          padding: 10px 20px;
-          background: #667eea;
-          color: white;
-          border-radius: 5px;
-          text-decoration: none;
-          font-weight: 600;
-          transition: background 0.3s;
-        }
-        .btn:hover {
-          background: #5a67d8;
-        }
-        .btn-secondary {
-          background: #e2e8f0;
-          color: #4a5568;
-        }
-        .btn-secondary:hover {
-          background: #cbd5e0;
-        }
-        .footer {
-          background: white;
-          padding: 20px;
+          padding: 10px 16px;
           border-radius: 10px;
-          text-align: center;
-          color: #718096;
-          font-size: 14px;
+          text-decoration: none;
+          font-weight: 700;
+          transition: all 0.18s ease;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: #0f172a;
+          color: var(--text);
         }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(0,0,0,0.25); }
+        .btn.primary {
+          background: linear-gradient(135deg, #8b5cf6, #6366f1);
+          border: none;
+          color: #fff;
+          box-shadow: 0 12px 30px rgba(99,102,241,0.35);
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 14px;
+        }
+        .card {
+          background: #0b1220;
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 14px;
+          padding: 16px 18px;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+        }
+        .card h2 {
+          margin: 0 0 10px 0;
+          font-size: 16px;
+          letter-spacing: 0.2px;
+        }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { padding: 6px 0; color: var(--muted); }
+        a { color: #a5b4fc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .endpoint {
+          font-family: 'JetBrains Mono', 'Courier New', monospace;
+          font-size: 13px;
+          color: #e2e8f0;
+          background: #0f172a;
+          padding: 6px 8px;
+          border-radius: 8px;
+          display: inline-block;
+          border: 1px solid rgba(255,255,255,0.06);
+        }
+        .muted { color: var(--muted); font-size: 13px; }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <h1>🔐 OAuth 2.0 Authorization Server</h1>
-          <p>OpenID Connect Provider - Hệ thống xác thực và ủy quyền</p>
-          
-          ${user ? `
-            <div class="user-info">
-              <span>👤 Xin chào, <strong>${user.name || user.username}</strong>!</span>
-              <a href="/session/logout" class="btn btn-secondary">Đăng xuất</a>
-            </div>
-          ` : `
-            <div class="user-info">
-              <span>Bạn chưa đăng nhập</span>
-              <a href="/login" class="btn">Đăng nhập</a>
-            </div>
-          `}
+        <div class="hero">
+          <div class="brand">
+            <h1>OAuth 2.0 Authorization Server</h1>
+            <p>OpenID Connect Provider — Authentication & Authorization</p>
+          </div>
+          <div class="user-box">
+            ${user ? `
+              👤 ${user.name || user.username} &nbsp;|&nbsp;
+              <a class="btn" href="/session/logout">Đăng xuất</a>
+            ` : `
+              Bạn chưa đăng nhập &nbsp;|&nbsp;
+              <a class="btn primary" href="/login">Đăng nhập</a>
+            `}
+          </div>
         </div>
-        
+
         <div class="grid">
           <div class="card">
-            <h2>📋 OIDC Endpoints</h2>
+            <h2>OIDC Endpoints</h2>
             <ul>
               <li><a href="/.well-known/openid-configuration" target="_blank">Discovery Document</a></li>
               <li><a href="/jwks.json" target="_blank">JWKS (Public Keys)</a></li>
               <li><a href="/authorize">Authorization Endpoint</a></li>
-              <li><code class="endpoint">POST /token</code></li>
-              <li><code class="endpoint">GET /userinfo</code></li>
-              <li><a href="/logout">End Session (Logout)</a></li>
+              <li><span class="endpoint">POST /token</span></li>
+              <li><span class="endpoint">GET /userinfo</span></li>
+              <li><a href="/logout">End Session</a></li>
             </ul>
           </div>
-          
           <div class="card">
-            <h2>🔑 Supported Flows</h2>
+            <h2>Supported Flows</h2>
             <ul>
-              <li>✅ Authorization Code Flow</li>
-              <li>✅ Authorization Code + PKCE</li>
-              <li>✅ Client Credentials</li>
-              <li>✅ Refresh Token</li>
-              <li>❌ Implicit Flow (deprecated)</li>
-              <li>❌ Resource Owner Password (not recommended)</li>
+              <li>Authorization Code (+ PKCE)</li>
+              <li>Client Credentials</li>
+              <li>Refresh Token</li>
+              <li><span class="muted">Implicit (deprecated)</span></li>
+              <li><span class="muted">Resource Owner Password (not recommended)</span></li>
             </ul>
           </div>
-          
           <div class="card">
-            <h2>🎯 Supported Scopes</h2>
+            <h2>Supported Scopes</h2>
             <ul>
-              <li><strong>openid</strong> - OpenID authentication</li>
-              <li><strong>profile</strong> - Profile information</li>
-              <li><strong>email</strong> - Email address</li>
-              <li><strong>offline_access</strong> - Refresh tokens</li>
-              <li><strong>api:read</strong> - API read access</li>
-              <li><strong>api:write</strong> - API write access</li>
+              <li>openid · profile · email</li>
+              <li>offline_access (refresh)</li>
+              <li>api:read · api:write</li>
             </ul>
           </div>
-          
           <div class="card">
-            <h2>🔧 Demo Clients</h2>
+            <h2>Quick Links</h2>
             <ul>
-              <li><strong>demo-client</strong><br><small>Authorization Code Flow</small></li>
-              <li><strong>spa-client</strong><br><small>SPA with PKCE</small></li>
-              <li><strong>service-client</strong><br><small>Client Credentials</small></li>
-              <li><strong>mobile-app</strong><br><small>Native App with PKCE</small></li>
+              <li><a href="/login">Login UI</a></li>
+              <li><a href="/health" target="_blank">Health Check</a></li>
+              <li><a href="https://github.com/panva/node-oidc-provider" target="_blank">oidc-provider docs</a></li>
             </ul>
           </div>
-        </div>
-        
-        <div class="footer">
-          <p>OAuth 2.0 & OpenID Connect Authorization Server</p>
-          <p>Powered by <strong>oidc-provider</strong> | Node.js + Express</p>
-          <p style="margin-top: 10px;">
-            <a href="https://github.com/panva/node-oidc-provider" target="_blank" style="color: #667eea;">Documentation</a>
-          </p>
         </div>
       </div>
     </body>

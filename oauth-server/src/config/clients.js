@@ -14,13 +14,13 @@ const clients = [
     client_id: 'my_app',
     client_secret: 'demo-client-secret', // phần này sau này sẽ lưu vào DB và hash bằng bcrypt
     client_name: 'Sunshine Boutique',
-    redirect_uris: ['http://localhost:8080/callback'],
-    post_logout_redirect_uris: ['http://localhost:8080', 'http://localhost:8080/login'],
+    redirect_uris: ['http://localhost:3001/callback'],
+    post_logout_redirect_uris: ['http://localhost:3001', 'http://localhost:3001/login'],
     response_types: ['code'], // Authorization Code Flow
     grant_types: ['authorization_code', 'refresh_token'],
     scope: 'openid profile email offline_access',
     token_endpoint_auth_method: 'client_secret_basic',
-    logo_uri: 'http://localhost:8080/images/logo.png',
+    logo_uri: 'http://localhost:3001/images/logo.png',
   },  
   {
     client_id: 'mobile_app',
