@@ -14,12 +14,24 @@
       <div class="product-card">
         <img src="<%= p.image %>" alt="<%= p.name %>">
         <h3><%= p.name %></h3>
-        <p class="price"><%= p.price.toLocaleString('vi-VN') %> ₫</p>
+        <% 
+          const effective = (typeof p.effectivePrice !== 'undefined' && p.effectivePrice !== null)
+            ? Number(p.effectivePrice)
+            : ((p.status === 'sale' && Number(p.salePrice) > 0) ? Number(p.salePrice) : Number(p.price));
+          const original = Number(p.price);
+          const isSale = (p.status === 'sale' && Number(p.salePrice) > 0 && effective < original);
+        %>
+        <div class="price-wrap">
+          <p class="price"><%= effective.toLocaleString('vi-VN') %> ₫</p>
+          <% if (isSale) { %>
+            <p class="price-original"><%= original.toLocaleString('vi-VN') %> ₫</p>
+          <% } %>
+        </div>
 
         <button class="quick-add-btn"
                 data-id="<%= p.id %>"
                 data-name="<%= p.name %>"
-                data-price="<%= p.price %>"
+                data-price="<%= effective %>"
                 data-image="<%= p.image %>">
           Thêm vào giỏ
         </button>
@@ -55,7 +67,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-  const isLoggedIn = <%= currentUser ? 'true' : 'false' %>;
+  const isLoggedIn = document.getElementById('__ctx')?.dataset?.loggedIn === '1';
   const modal = document.getElementById("quickAddModal");
   const toast = document.getElementById("toast");
 
