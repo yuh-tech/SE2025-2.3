@@ -349,11 +349,24 @@ console.log('checkpoint C - EJS configured, views path set');
 // ==================================
 // 6. ROUTES — KHÁCH HÀNG
 // ==================================
-app.get(['/', '/home'], (req, res) => {
-  res.render('home', {
-    title: 'Sunshine Boutique – Thời trang nhẹ nhàng',
-    products: allProducts
-  });
+app.get(['/', '/home'], async (req, res) => {
+  const effectivePriceSql = `CASE WHEN status='sale' AND salePrice > 0 THEN salePrice ELSE price END`;
+  try {
+    const rows = await dbAll(
+      `SELECT *, ${effectivePriceSql} AS effectivePrice FROM products ORDER BY createdAt DESC LIMIT 8`
+    );
+    const products = rows && rows.length ? rows : allProducts;
+    res.render('home', {
+      title: 'Sunshine Boutique – Thời trang nhẹ nhàng',
+      products
+    });
+  } catch (err) {
+    console.error('home query error:', err);
+    res.render('home', {
+      title: 'Sunshine Boutique – Thời trang nhẹ nhàng',
+      products: allProducts
+    });
+  }
 });
 
 // ----- LOGIN -----
