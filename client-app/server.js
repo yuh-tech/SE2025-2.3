@@ -1,6 +1,7 @@
 const path = require('path'); // khai báo path đầu tiên
-console.log('server.js loaded');
-console.log('SERVER FILE:', __filename);
+console.log('SERVER.JS ACTUAL FILE:', __filename);
+// console.log('server.js loaded');
+// console.log('SERVER FILE:', __filename);
 require('dotenv').config({ path: path.join(__dirname, '../.env') }); // dùng path ngay sau đó
 
 
@@ -32,6 +33,7 @@ const dbAll = promisify(productDB.all.bind(productDB));
 const dbCustomerAll = promisify(db.all.bind(db));
 const dbCustomerGet = promisify(db.get.bind(db));           // customers.db
 const dbCustomerRun = promisify(db.run.bind(db));
+
 const dbOrderGet = promisify(orderDB.get.bind(orderDB));    // orders.db
 const dbOrderAll = promisify(orderDB.all.bind(orderDB));
 const dbOrderRun = promisify(orderDB.run.bind(orderDB));
@@ -70,6 +72,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 // Export the app for external start scripts / tests
 module.exports = app;
+
+
+// Request logger (general)
+app.use((req, res, next) => {
+  console.log('>>> REQ', req.method, req.url);
+  next();
+});
+
 
 // ========== MIDDLEWARE CƠ BẢN ==========
 app.use(express.urlencoded({ extended: true }));
@@ -240,13 +250,64 @@ orderDB.serialize(() => {
   `);
 
   // Bổ sung metadata đơn hàng + biến thể
-  ensureColumn(orderDB, 'orders', 'status', "TEXT DEFAULT 'processing'");
+  ensureColumn(orderDB, 'orders', 'status', "TEXT DEFAULT 'pending'");
   ensureColumn(orderDB, 'orders', 'total', 'INTEGER');
   ensureColumn(orderDB, 'orders', 'phone', 'TEXT');
   ensureColumn(orderDB, 'orders', 'address', 'TEXT');
   ensureColumn(orderDB, 'orders', 'payment_method', 'TEXT');
   ensureColumn(orderDB, 'order_items', 'color', 'TEXT');
   ensureColumn(orderDB, 'order_items', 'size', 'TEXT');
+  ensureColumn(orderDB, 'orders', 'shipped_at', 'TEXT');        // lúc admin chuyển sang shipping
+  ensureColumn(orderDB, 'orders', 'delivered_at', 'TEXT');      // lúc admin chuyển done
+  ensureColumn(orderDB, 'orders', 'eta_date', 'TEXT');          // ngày dự kiến nhận trước (lưu lại để luôn ổn định)
+  ensureColumn(orderDB, 'orders', 'eta_extended', "INTEGER DEFAULT 0"); // đã gia hạn +2 ngày chưa
+  ensureColumn(orderDB, 'orders', 'delay_notified', "INTEGER DEFAULT 0"); // đã “xin lỗi” chưa (tránh spam)
+  ensureColumn(orderDB, 'orders', 'reviewed', 'INTEGER DEFAULT 0');
+
+  orderDB.run(`
+    CREATE TABLE IF NOT EXISTS reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER,
+      customer_id INTEGER,
+      product_id INTEGER,
+      rating INTEGER,
+      comment TEXT,
+      created_at TEXT,
+      has_media INTEGER DEFAULT 0
+    )
+  `);
+
+
+  orderDB.run(`
+    CREATE TABLE IF NOT EXISTS review_media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      review_id INTEGER NOT NULL,
+      type TEXT NOT NULL,     -- 'image' | 'video'
+      url TEXT NOT NULL,
+      FOREIGN KEY(review_id) REFERENCES reviews(id)
+    )
+  `);
+
+  orderDB.run(`
+    CREATE TABLE IF NOT EXISTS return_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      customer_id INTEGER NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(order_id, product_id, customer_id)
+    )
+  `);
+
+  orderDB.run(`ALTER TABLE orders ADD COLUMN return_requested INTEGER DEFAULT 0`, (err) => {
+    if (err) console.log('return_requested exists:', err.message);
+  });
+  orderDB.run(`ALTER TABLE orders ADD COLUMN return_blocked INTEGER DEFAULT 0`, (err) => {
+    if (err) console.log('return_blocked exists:', err.message);
+  });
+
 });
 
 console.log('checkpoint B - productDB schema ensured');
@@ -785,14 +846,45 @@ app.get('/product/:id', (req, res) => {
       (vErr, variants) => {
         if (vErr) variants = [];
 
-        const productReviews = reviews.filter((r) => r.productId == id);
+        orderDB.all(
+          `SELECT rating, comment, created_at, customer_id
+          FROM reviews
+          WHERE product_id = ?
+          ORDER BY datetime(created_at) DESC`,
+          [id],
+          async (rErr, rows) => {
+            if (rErr) rows = [];
 
-        res.render('product', {
-          title: product.name,
-          product,
-          variants,
-          reviews: productReviews
-        });
+            const mappedReviews = [];
+
+            for (const r of rows) {
+              let user = null;
+              try {
+                user = await dbCustomerGet(
+                  'SELECT displayName FROM customers WHERE id = ?',
+                  [r.customer_id]
+                );
+              } catch (e) {
+                user = null;
+              }
+
+              mappedReviews.push({
+                rating: r.rating,
+                comment: r.comment,
+                created_at: r.created_at,
+                displayName: user?.displayName || 'Khách hàng'
+              });
+            }
+
+            res.render('product', {
+              title: product.name,
+              product,
+              variants,
+              reviews: mappedReviews
+            });
+          }
+        );
+
       }
     );
   });
@@ -1041,11 +1133,15 @@ app.post('/checkout', async (req, res) => {
   // Tạo order trong orders.db
   try {
     const createdAt = new Date().toISOString();
+    const eta = new Date(Date.now() + 7*24*60*60*1000).toISOString(); // +7 ngày
+
     const insert = await runWithLastId(
       orderDB,
-      'INSERT INTO orders (customer_id, created_at, status, total, phone, address, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [customer.id, createdAt, 'processing', total, phone, address, paymentMethod]
+      `INSERT INTO orders (customer_id, created_at, status, total, phone, address, payment_method, eta_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [customer.id, createdAt, 'pending', total, phone, address, paymentMethod, eta]
     );
+
     const orderId = insert.lastID;
 
     for (const item of cart) {
@@ -1057,7 +1153,7 @@ app.post('/checkout', async (req, res) => {
 
     req.session.cart = [];
 
-    return res.redirect('/checkout/success/' + orderId);
+    return res.redirect('/orders/' + orderId);
   } catch (err) {
     console.error('Checkout error:', err);
     return res.render('checkout', {
@@ -1075,67 +1171,877 @@ app.post('/checkout', async (req, res) => {
   }
 });
 
-// ==================================
-// 9. TRACKING ĐƠN HÀNG
-// ==================================
-app.get('/orders/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const order = orders.find((o) => o.id === id);
 
-  if (!order) return res.send('Không tìm thấy đơn hàng');
 
-  res.render('order-detail', { title: 'Chi tiết đơn hàng', order });
+// CUSTOMER — ĐƠN MUA
+// ===============================
+app.get('/my-orders', async (req, res) => {
+  
+  if (!req.session.user) return res.redirect('/login');
+
+  const username = req.session.user.username;
+
+  let customer;
+  try {
+    customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+  } catch (e) {
+    customer = null;
+  }
+  if (!customer) return res.redirect('/login');
+
+  try {
+    let status = String(req.query.status || 'all').trim(); // đổi const -> let
+
+    // map BEFORE query
+    if (status === 'shipping') status = 'shipped';
+
+    // nếu bạn muốn bỏ "all" và mặc định là pending:
+    // let status = String(req.query.status || 'pending').trim();
+    // if (status === 'all') status = 'pending';
+
+    const where = status === 'all' ? '' : 'AND o.status = ?';
+    const params = status === 'all' ? [customer.id] : [customer.id, status];
+
+    const orders = await dbAll(`
+      SELECT
+        o.id, o.created_at, o.status, o.total, o.payment_method, o.phone, o.address,
+        o.eta_date, o.shipped_at,
+        CASE WHEN COALESCE(rv.cnt, 0) > 0 THEN 1 ELSE 0 END AS reviewedFlag
+      FROM ordersDB.orders o
+      LEFT JOIN (
+        SELECT order_id, customer_id, COUNT(*) AS cnt
+        FROM ordersDB.reviews
+        GROUP BY order_id, customer_id
+      ) rv
+        ON rv.order_id = o.id AND rv.customer_id = o.customer_id
+      WHERE o.customer_id = ?
+      ${where}
+      ORDER BY o.id DESC
+    `, params);
+
+    res.render('my-orders', { title: 'Đơn mua', orders, status });
+  } catch (err) {
+    console.error('MY ORDERS ERROR:', err);
+    res.status(500).send('DB ERROR');
+  }
+
+});
+
+// ===============================
+// CUSTOMER — CHI TIẾT ĐƠN
+// ===============================
+app.get('/orders/:id', async (req, res) => {
+  try {
+    if (!req.session.user) return res.redirect('/login');
+
+    const orderId = Number(req.params.id);
+    if (!orderId) return res.status(400).send('Invalid order id');
+
+    const username = req.session.user.username;
+    const isAdminUser = req.session.user?.role === 'admin';
+
+    // 1) Lấy customer (để lấy customer.id cho user thường)
+    let customer = null;
+    if (!isAdminUser) {
+      customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+      if (!customer) return res.redirect('/login');
+    }
+
+    // 2) Lấy order
+    let order = null;
+    if (isAdminUser) {
+      order = await dbOrderGet('SELECT * FROM orders WHERE id = ?', [orderId]);
+    } else {
+      order = await dbOrderGet(
+        'SELECT * FROM orders WHERE id = ? AND customer_id = ?',
+        [orderId, customer.id]
+      );
+    }
+
+    if (!order) return res.status(404).send('Không tìm thấy đơn hàng');
+
+    // 3) Lấy order_items từ orders.db
+    const rawItems = await dbOrderAll(
+      `SELECT product_id, quantity, price, color, size
+       FROM order_items
+       WHERE order_id = ?`,
+      [orderId]
+    );
+
+    // 4) Lấy thông tin product từ products.db rồi merge
+    const items = [];
+    for (const oi of rawItems) {
+      const p = await dbGet(
+        'SELECT id, name, image FROM products WHERE id = ?',
+        [oi.product_id]
+      );
+
+      items.push({
+        product_id: oi.product_id,
+        quantity: oi.quantity,
+        price: oi.price,
+        color: oi.color,
+        size: oi.size,
+        product_name: p?.name || `SP #${oi.product_id}`,
+        product_image: p?.image || ''
+      });
+    }
+
+    // 5) reviewedMap: ưu tiên lấy từ DB (nếu có bảng reviews), fallback JSON (reviews[])
+    const reviewedMap = {};
+
+    // (A) thử lấy từ orders.db bảng reviews
+    try {
+      const reviewerCustomerId = isAdminUser ? order.customer_id : customer.id;
+
+      const reviewedRows = await dbOrderAll(
+        `SELECT product_id
+         FROM reviews
+         WHERE order_id = ? AND customer_id = ?`,
+        [orderId, reviewerCustomerId]
+      );
+
+      reviewedRows.forEach(r => {
+        reviewedMap[Number(r.product_id)] = true;
+      });
+    } catch (e) {
+      // (B) fallback: nếu bạn vẫn dùng reviews JSON cũ
+      (global.reviews || reviews || [])
+        .filter(r => Number(r.orderId) === Number(orderId) && String(r.user) === String(username))
+        .forEach(r => {
+          reviewedMap[Number(r.productId)] = true;
+        });
+    }
+
+    // 6) ETA logic (truyền thêm lateApology để EJS dùng)
+    const createdAt = order.created_at ? new Date(order.created_at) : new Date();
+    const shippedAt = order.shipped_at ? new Date(order.shipped_at) : null;
+
+    let eta = order.eta_date
+      ? new Date(order.eta_date)
+      : new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // shipped thì ETA = shipped_at + 3 ngày
+    if (String(order.status) === 'shipped' && shippedAt) {
+      eta = new Date(shippedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+    }
+
+    let lateApology = false;
+    let etaExtended = null;
+
+    if (String(order.status) !== 'done' && new Date() > eta) {
+      lateApology = true;
+      etaExtended = new Date(eta.getTime() + 2 * 24 * 60 * 60 * 1000);
+    }
+
+    // 7) Render
+    return res.render('order-detail', {
+      title: 'Chi tiết đơn hàng',
+      order,
+      items,
+      reviewedMap,
+      eta,
+      etaExtended,
+      lateApology
+    });
+  } catch (err) {
+    console.error('GET /orders/:id error:', err);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
+
+// ==================================
+// CUSTOMER — GIAO DIỆN ĐÁNH GIÁ ĐƠN HÀNG
+// CUSTOMER — FORM ĐÁNH GIÁ ĐƠN HÀNG
+// ==================================
+app.get('/orders/:id/review', async (req, res) => {
+  if (!req.session.user) return res.redirect('/login');
+
+  const orderId = Number(req.params.id);
+
+  // tìm customer theo session
+  const username = req.session.user.username;
+  const customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+  if (!customer) return res.redirect('/login');
+
+  // chỉ DONE mới được review + đúng chủ đơn
+  const order = await dbOrderGet(
+    'SELECT * FROM orders WHERE id = ? AND customer_id = ? AND status = "done"',
+    [orderId, customer.id]
+  );
+  if (!order) return res.send('Đơn hàng chưa hoàn tất hoặc không tồn tại');
+
+  // lấy item trong order (orders.db)
+  const orderItems = await dbOrderAll(
+    'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+    [orderId]
+  );
+
+  // lấy info sản phẩm từ products.db
+  const items = [];
+  for (const oi of orderItems) {
+    const product = await dbGet('SELECT id, name, image FROM products WHERE id = ?', [oi.product_id]);
+    if (product) {
+      items.push({
+        product_id: product.id,
+        name: product.name,
+        image: product.image,
+        quantity: oi.quantity
+      });
+    }
+  }
+
+  res.render('order-review', {
+    title: 'Đánh giá sản phẩm',
+    order,
+    items
+  });
+});
+
+
+// ==================================
+// CUSTOMER — XỬ LÝ GỬI ĐÁNH GIÁ ĐƠN HÀNG
+// ==================================
+app.post('/orders/:orderId/review/:productId', async (req, res) => {
+  try {
+    if (!req.session.user) return res.redirect('/login');
+
+    const orderId = Number(req.params.orderId);
+    const productId = Number(req.params.productId);
+    const rating = Number(req.body.rating || 0);
+    const comment = String(req.body.comment || '').trim();
+
+    if (!orderId || !productId) return res.status(400).send('Bad request');
+    if (!(rating >= 1 && rating <= 5)) return res.status(400).send('Bạn phải chọn số sao (1-5).');
+
+    // lấy customer đang login
+    const username = req.session.user.username;
+    const customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+    if (!customer) return res.redirect('/login');
+
+    // chỉ cho review đơn DONE và thuộc về user
+    const ord = await dbOrderGet(
+      `SELECT id, customer_id, status FROM orders WHERE id = ?`,
+      [orderId]
+    );
+    if (!ord || Number(ord.customer_id) !== Number(customer.id)) return res.status(403).send('Forbidden');
+    if (String(ord.status) !== 'done') return res.status(400).send('Đơn chưa hoàn tất nên chưa thể đánh giá.');
+
+    // kiểm tra sản phẩm này có nằm trong đơn không
+    const oi = await dbOrderGet(
+      `SELECT id FROM order_items WHERE order_id = ? AND product_id = ?`,
+      [orderId, productId]
+    );
+    if (!oi) return res.status(400).send('Sản phẩm không thuộc đơn này.');
+
+    // chống đánh giá trùng trong cùng 1 đơn
+    const existed = await dbOrderGet(
+      `SELECT id FROM reviews WHERE order_id = ? AND product_id = ? AND customer_id = ?`,
+      [orderId, productId, customer.id]
+    );
+    if (existed) {
+      return res.redirect('/orders/' + orderId); // đã đánh giá rồi 
+    }
+
+    // lưu review
+    await dbOrderRun(
+      `INSERT INTO reviews (order_id, product_id, customer_id, rating, comment, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [orderId, productId, customer.id, rating, comment, new Date().toISOString()]
+    );
+
+    // quay lại chi tiết đơn hàng để thấy “Đã đánh giá”
+    return res.redirect('/orders/' + orderId);
+  } catch (e) {
+    console.error('POST REVIEW ERROR:', e);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
+
+// ==================================
+// CUSTOMER — GỬI ĐÁNH GIÁ
+// ==================================
+app.post('/product/:id/review', async (req, res) => {
+  try {
+    if (!req.session.user) return res.redirect('/login');
+
+    const productId = Number(req.params.id);
+    const orderId = Number(req.body.orderId);
+    const rating = Number(req.body.rating || 5);
+    const comment = String(req.body.comment || '').trim();
+
+    // lấy customer đang login
+    const username = req.session.user.username;
+    const customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+    if (!customer) return res.redirect('/login');
+
+    // chỉ cho review nếu order DONE và đúng chủ đơn
+    const order = await dbOrderGet(
+      'SELECT * FROM orders WHERE id = ? AND customer_id = ? AND status = "done"',
+      [orderId, customer.id]
+    );
+    if (!order) return res.status(400).send('Đơn hàng chưa hoàn tất hoặc không hợp lệ');
+
+    // ✅ chặn review trùng
+    const existed = await dbOrderGet(
+      `SELECT id FROM reviews WHERE order_id = ? AND product_id = ? AND customer_id = ?`,
+      [orderId, productId, customer.id]
+    );
+    if (existed) {
+      return res.redirect('/orders/' + orderId); // đã review rồi thì quay lại luôn
+    }
+
+    // insert review
+    await dbOrderRun(
+      `INSERT INTO reviews (order_id, product_id, customer_id, rating, comment, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [orderId, productId, customer.id, rating, comment, new Date().toISOString()]
+    );
+
+    // ✅ quay lại chi tiết đơn
+    return res.redirect('/orders/' + orderId + '#item-' + productId);
+  } catch (e) {
+    console.error('POST REVIEW ERROR:', e);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
+
+
+
+// ==================================
+// 10. RETURN / YÊU CẦU TRẢ HÀNG
+// ==================================
+app.get('/orders/:id/return', async (req, res) => {
+  if (!req.session.user) return res.redirect('/login');
+
+  const orderId = Number(req.params.id);
+  const username = req.session.user.username;
+
+  // lấy customer id
+  const customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+  if (!customer) return res.redirect('/login');
+
+  // chỉ cho hoàn đơn DONE + chưa reviewed + đúng chủ đơn
+  const order = await dbOrderGet(
+    'SELECT * FROM orders WHERE id = ? AND customer_id = ? AND status = "done"',
+    [orderId, customer.id]
+  );
+  if (!order) return res.status(400).send('Không thể hoàn đơn này');
+
+  const isReviewed = Number(order.reviewed || 0) === 1;
+  if (isReviewed) return res.status(400).send('Đơn đã đánh giá nên không thể hoàn');
+
+  // lấy item để show
+  // lấy item từ orders.db (KHÔNG JOIN products)
+  const orderItems = await dbOrderAll(
+    `SELECT product_id, quantity, color, size
+    FROM order_items
+    WHERE order_id = ?`,
+    [orderId]
+  );
+
+  // với mỗi item -> lấy info từ products.db
+  const items = [];
+  for (const oi of orderItems) {
+    const p = await dbGet('SELECT id, name, image FROM products WHERE id = ?', [oi.product_id]); 
+    items.push({
+      product_id: oi.product_id,
+      name: p?.name || ('Sản phẩm #' + oi.product_id),
+      image: p?.image || '',
+      quantity: oi.quantity,
+      color: oi.color,
+      size: oi.size
+    });
+  }
+
+  res.render('order-return', {
+    title: 'Yêu cầu hoàn hàng',
+    order,
+    items
+  });
+
 });
 
 // ==================================
-// 10. REVIEW SẢN PHẨM
-// ==================================
-app.post('/product/:id/review', (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
+// CUSTOMER — HỦY ĐƠN (chỉ pending/processing)
+app.post('/orders/:id/cancel', async (req, res) => {
+  try {
+    if (!req.session.user) return res.redirect('/login');
 
-  const id = Number(req.params.id);
-  const { rating, comment } = req.body;
+    const orderId = Number(req.params.id);
+    if (!orderId) return res.status(400).send('Invalid order id');
 
-  reviews.push({
-    id: Date.now(),
-    productId: id,
-    user: req.session.user.username,
-    rating,
-    comment,
-    createdAt: new Date().toISOString()
-  });
+    const username = req.session.user.username;
 
-  saveJSON(reviewsPath, reviews);
+    // lấy customer id
+    const customer = await dbCustomerGet(
+      'SELECT id FROM customers WHERE username = ?',
+      [username]
+    );
+    if (!customer) return res.redirect('/login');
 
-  res.redirect('/product/' + id);
+    // lấy order đúng chủ
+    const order = await dbOrderGet(
+      'SELECT id, status FROM orders WHERE id = ? AND customer_id = ?',
+      [orderId, customer.id]
+    );
+    if (!order) return res.status(404).send('Không tìm thấy đơn');
+
+    const st = String(order.status || '').trim();
+
+    // chỉ cho hủy khi pending hoặc processing
+    if (!['pending', 'processing'].includes(st)) {
+      return res.status(400).send('Đơn này không thể huỷ ở trạng thái hiện tại.');
+    }
+
+    await dbOrderRun(
+      "UPDATE orders SET status = 'cancelled' WHERE id = ? AND customer_id = ?",
+      [orderId, customer.id]
+    );
+
+    // quay lại trang trước (hoặc my-orders)
+    const back = req.headers.referer || '/my-orders';
+    return res.redirect(back);
+  } catch (e) {
+    console.error('CANCEL ORDER ERROR:', e);
+    return res.status(500).send('DB ERROR');
+  }
 });
 
 // ==================================
 // 11. RETURN / YÊU CẦU TRẢ HÀNG
 // ==================================
-app.post('/orders/:id/return', (req, res) => {
+app.post('/orders/:id/return', async (req, res) => {
   if (!req.session.user) return res.redirect('/login');
 
-  const id = Number(req.params.id);
+  const orderId = Number(req.params.id);
+  const reason = String(req.body.reason || '').trim();
 
-  returnsList.push({
-    id: Date.now(),
-    orderId: id,
-    user: req.session.user.username,
-    status: 'pending',
-    createdAt: new Date().toISOString()
-  });
+  // chỉ cho hoàn đơn đã DONE
+  orderDB.get(
+    'SELECT * FROM orders WHERE id = ? AND status = "done"',
+    [orderId],
+    (err, order) => {
+      if (err || !order) return res.status(400).send('Không thể hoàn đơn này');
 
-  saveJSON(returnsPath, returnsList);
+      // tạo yêu cầu hoàn
+      returnsList.push({
+        id: Date.now(),
+        orderId,
+        user: req.session.user.username,
+        status: 'pending',
+        reason,
+        createdAt: new Date().toISOString()
+      });
 
-  res.redirect('/orders/' + id);
+      saveJSON(returnsPath, returnsList);
+
+      orderDB.run(`UPDATE orders SET status = 'return_requested' WHERE id = ?`, [orderId]);
+      res.redirect('/orders/' + orderId);
+    }
+  );
 });
 
 // ==================================
-app.get('/admin/dashboard', isAdmin, (req, res) => {
-  res.render('admin/dashboard', {
-    title: 'Admin Dashboard'
+// CUSTOMER — GỬI YÊU CẦU HOÀN HÀNG
+// ==================================
+app.post('/orders/:id/return-request', async (req, res) => {
+  if (!req.session.user) return res.redirect('/login');
+
+  const orderId = Number(req.params.id);
+  const username = req.session.user.username;
+
+  const customer = await dbCustomerGet('SELECT * FROM customers WHERE username=?', [username]);
+  if (!customer) return res.redirect('/login');
+
+  const order = await dbOrderGet(
+    'SELECT * FROM orders WHERE id=? AND customer_id=?',
+    [orderId, customer.id]
+  );
+  if (!order) return res.status(404).send('Không tìm thấy đơn');
+
+  // Chỉ DONE mới được yêu cầu hoàn
+  if (String(order.status) !== 'done') {
+    return res.status(400).send('Chỉ được yêu cầu hoàn khi đơn đã hoàn tất');
+  }
+
+  // Nếu admin đã từ chối rồi => khóa hoàn vĩnh viễn
+  if (Number(order.return_blocked || 0) === 1) {
+    return res.status(400).send('Yêu cầu hoàn đã bị từ chối. Không thể yêu cầu lại.');
+  }
+
+  // Nếu đã đánh giá bất kỳ sản phẩm nào trong đơn => không cho hoàn nữa
+  const anyReviewed = (reviews || []).some(r =>
+    Number(r.orderId) === Number(orderId) && String(r.user) === String(username)
+  );
+  if (anyReviewed) {
+    return res.status(400).send('Bạn đã đánh giá đơn này, không thể yêu cầu hoàn.');
+  }
+
+  // Nếu đang chờ duyệt rồi thì thôi
+  if (Number(order.return_requested || 0) === 1) {
+    return res.redirect('/orders/' + orderId);
+  }
+
+  await dbOrderRun(
+    "UPDATE orders SET return_requested=1, status='return_requested' WHERE id=?",
+    [orderId]
+  );
+  return res.redirect('/orders/' + orderId);
+});
+
+
+// ==================================
+// CUSTOMER — GIAO DIỆN ĐÁNH GIÁ SẢN PHẨM
+// ==================================
+app.get('/orders/:orderId/review/:productId', async (req, res) => {
+  if (!req.session.user) return res.redirect('/login');
+
+  const orderId = Number(req.params.orderId);
+  const productId = Number(req.params.productId);
+
+  const username = req.session.user.username;
+  const customer = await dbCustomerGet(
+    'SELECT * FROM customers WHERE username = ?',
+    [username]
+  );
+  if (!customer) return res.redirect('/login');
+
+  // chỉ cho review nếu đơn DONE + đúng chủ đơn
+  const order = await dbOrderGet(
+    'SELECT * FROM orders WHERE id = ? AND customer_id = ? AND status = "done"',
+    [orderId, customer.id]
+  );
+  if (!order) return res.send('Không thể đánh giá đơn này');
+
+  // kiểm tra sản phẩm có trong đơn không
+  const orderItem = await dbOrderGet(
+    'SELECT * FROM order_items WHERE order_id = ? AND product_id = ?',
+    [orderId, productId]
+  );
+  if (!orderItem) return res.send('Sản phẩm không thuộc đơn hàng');
+
+  // lấy info sản phẩm từ products.db
+  const product = await dbGet(
+    'SELECT id, name, image FROM products WHERE id = ?',
+    [productId]
+  );
+  if (!product) return res.send('Không tìm thấy sản phẩm');
+
+  res.render('order-review', {
+    title: 'Đánh giá sản phẩm',
+    order,
+    product,
+    orderItem
   });
+});
+
+// ==================================
+// CUSTOMER — GỬI ĐÁNH GIÁ SẢN PHẨM
+// ==================================
+app.post('/orders/:orderId/review/:productId', async (req, res) => {
+  try {
+    if (!req.session.user) return res.redirect('/login');
+
+    const orderId = Number(req.params.orderId);
+    const productId = Number(req.params.productId);
+    const rating = Number(req.body.rating || 0);
+    const comment = String(req.body.comment || '').trim();
+
+    // lấy customer
+    const customer = await dbCustomerGet(
+      'SELECT id FROM customers WHERE username = ?',
+      [req.session.user.username]
+    );
+    if (!customer) return res.redirect('/login');
+
+    // chỉ cho review đơn DONE + đúng chủ đơn
+    const order = await dbOrderGet(
+      `SELECT id FROM orders WHERE id = ? AND customer_id = ? AND status = 'done'`,
+      [orderId, customer.id]
+    );
+    if (!order) return res.status(400).send('Không thể đánh giá đơn này');
+
+    // chặn review trùng
+    const existed = await dbOrderGet(
+      `SELECT id FROM reviews WHERE order_id = ? AND customer_id = ? AND product_id = ?`,
+      [orderId, customer.id, productId]
+    );
+    if (existed) return res.redirect('/orders/' + orderId);
+
+    await dbOrderRun(
+      `INSERT INTO reviews (order_id, customer_id, product_id, rating, comment, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [orderId, customer.id, productId, rating, comment, new Date().toISOString()]
+    );
+
+    return res.redirect('/orders/' + orderId);
+  } catch (e) {
+    console.error('POST REVIEW ERROR:', e);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
+
+
+
+// ==================================
+// CUSTOMER — GIAO DIỆN TRẢ HÀNG SẢN PHẨM
+// ==================================
+app.get('/orders/:orderId/return/:productId', (req, res) => {
+  res.send('TODO: Return UI here. orderId=' + req.params.orderId + ' productId=' + req.params.productId);
+});
+
+
+// ==================================
+// 9. CUSTOMER — DANH SÁCH ĐƠN HÀNG
+// ==================================
+app.get('/orders', async (req, res) => {
+  if (!req.session.user) return res.redirect('/login');
+
+  const username = req.session.user.username;
+  const customer = await dbCustomerGet('SELECT * FROM customers WHERE username = ?', [username]);
+  if (!customer) return res.redirect('/login');
+
+  const tab = String(req.query.tab || 'all'); // all | pending | shipped | done | reviewed | returning | cancelled
+
+  let where = 'o.customer_id = ?';
+  const params = [customer.id];
+
+  if (tab === 'reviewed') where += ' AND o.status = "done" AND COALESCE(o.reviewed,0)=1';
+  else if (tab === 'done') where += ' AND o.status = "done" AND COALESCE(o.reviewed,0)=0';
+  else if (tab !== 'all') where += ' AND o.status = ?' , params.push(tab);
+
+  const orders = await dbOrderAll(
+    `SELECT o.* FROM orders o WHERE ${where} ORDER BY o.id DESC`,
+    params
+  );
+
+  res.render('orders-list', { title: 'Đơn mua', orders, tab });
+});
+
+
+
+// ==================================
+// CUSTOMER — CHI TIẾT ĐƠN HÀNG
+// ==================================
+app.get('/orders/:id', async (req, res) => {
+  try {
+    if (!req.session.user) return res.redirect('/login');
+
+    const orderId = Number(req.params.id);
+    if (!orderId) return res.status(400).send('Invalid order id');
+
+    // 0) lấy customer đang login (từ customers.db)
+    const username = req.session.user.username;
+    const customer = await dbCustomerGet(
+      'SELECT id, username, displayName FROM customers WHERE username = ?',
+      [username]
+    );
+    if (!customer) return res.redirect('/login');
+
+    // 1) lấy order của đúng customer
+    const order = await dbOrderGet(
+      `SELECT *
+       FROM orders
+       WHERE id = ? AND customer_id = ?`,
+      [orderId, customer.id]
+    );
+
+    if (!order) return res.status(404).send('Không tìm thấy đơn hàng');
+
+    // 2) lấy items trong đơn (orders.db) + join sang products.db
+    //    LƯU Ý: products nằm trong products.db => dùng productDB để query, nhưng order_items nằm trong orders.db
+    //    Cách đơn giản: query items từ orders.db trước, rồi map sang products.db.
+
+    const rawItems = await dbOrderAll(
+      `SELECT product_id, quantity, price, color, size
+       FROM order_items
+       WHERE order_id = ?`,
+      [orderId]
+    );
+
+    // lấy info sản phẩm từ products.db cho tất cả product_id
+    const items = [];
+    for (const oi of rawItems) {
+      const p = await dbGet(
+        `SELECT id, name, image
+         FROM products
+         WHERE id = ?`,
+        [oi.product_id]
+      );
+
+      items.push({
+        product_id: oi.product_id,
+        quantity: oi.quantity,
+        price: oi.price,
+        color: oi.color,
+        size: oi.size,
+        product_name: p ? p.name : `SP #${oi.product_id}`,
+        product_image: p ? p.image : ''
+      });
+    }
+
+    // 3) late apology (giao trễ)
+    let lateApology = false;
+    if (order.eta_date && String(order.status) !== 'done') {
+      const eta = new Date(order.eta_date);
+      const now = new Date();
+      if (now > eta) lateApology = true;
+    }
+
+    // 4) reviewedMap lấy từ DB (orders.db table: reviews)
+    //    (chặn nút đánh giá cho từng product trong order)
+    const reviewedRows = await dbOrderAll(
+      `SELECT product_id
+       FROM reviews
+       WHERE order_id = ? AND customer_id = ?`,
+      [orderId, customer.id]
+    );
+
+    const reviewedMap = {};
+    (reviewedRows || []).forEach(r => {
+      reviewedMap[Number(r.product_id)] = true;
+    });
+
+    // 5) render
+    return res.render('order-detail', {
+      title: 'Chi tiết đơn hàng',
+      order,
+      items,
+      reviewedMap,
+      lateApology
+    });
+
+  } catch (err) {
+    console.error('GET /orders/:id ERROR:', err);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
+
+
+
+// ==================================
+app.get('/admin/dashboard', isAdmin, async (req, res) => {
+  try {
+    // 1) Counts
+    const productsCountRow = await dbGet(`SELECT COUNT(*) AS cnt FROM productsDB.products`);
+    const customersCountRow = await dbCustomerGet(`SELECT COUNT(*) AS cnt FROM customers`);
+    const ordersCountRow = await dbGet(`SELECT COUNT(*) AS cnt FROM ordersDB.orders`);
+    const pendingCountRow = await dbGet(`SELECT COUNT(*) AS cnt FROM ordersDB.orders WHERE status = 'pending'`);
+
+    const productsCount = productsCountRow?.cnt || 0;
+    const customersCount = customersCountRow?.cnt || 0;
+    const ordersCount = ordersCountRow?.cnt || 0;
+    const pendingCount = pendingCountRow?.cnt || 0;
+
+    // 2) Total revenue (tuỳ bạn tính theo trạng thái nào)
+    // Thường doanh thu chỉ tính đơn done (hoặc done + returned tuỳ bài)
+    const revenueRow = await dbGet(`
+      SELECT COALESCE(SUM(total), 0) AS totalRevenue
+      FROM ordersDB.orders
+      WHERE status = 'done'
+    `);
+    const totalRevenue = revenueRow?.totalRevenue || 0;
+
+    // 3) Sales today (top sản phẩm bán hôm nay)
+    const salesToday = await dbAll(`
+      SELECT
+        p.name AS product_name,
+        c.username AS customer_name,
+        SUM(oi.quantity) AS sold
+      FROM ordersDB.orders o
+      JOIN ordersDB.order_items oi ON oi.order_id = o.id
+      JOIN productsDB.products p ON p.id = oi.product_id
+      JOIN customers c ON c.id = o.customer_id
+      WHERE date(o.created_at) = date('now')
+      GROUP BY p.id, c.id
+      ORDER BY sold DESC
+      LIMIT 10
+    `);
+
+    // 4) Revenue 7 days (đủ 7 ngày kể cả ngày = 0)
+    const rawWeek = await dbAll(`
+      SELECT date(created_at) AS day, COALESCE(SUM(total), 0) AS revenue
+      FROM ordersDB.orders
+      WHERE status = 'done'
+        AND date(created_at) >= date('now','-6 day')
+      GROUP BY date(created_at)
+      ORDER BY day ASC
+    `);
+
+    // fill đủ 7 ngày để chart không bị “trống”
+    const revenueMap = new Map((rawWeek || []).map(r => [r.day, Number(r.revenue || 0)]));
+    const revenueWeek = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const day = d.toISOString().slice(0, 10); // YYYY-MM-DD
+      revenueWeek.push({ day, revenue: revenueMap.get(day) || 0 });
+    }
+
+    return res.render('admin/dashboard', {
+      title: 'Admin Dashboard',
+      productsCount,
+      customersCount,
+      ordersCount,
+      pendingCount,
+      totalRevenue,
+      salesToday,
+      revenueWeek,
+    });
+  } catch (err) {
+    console.error('ADMIN DASHBOARD ERROR:', err);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
+// ==================================
+// 11. ADMIN — DOANH THU THEO NGÀY
+// ==================================
+app.get('/admin/revenue', isAdmin, async (req, res) => {
+  try {
+    // có thể chọn 7 / 30 ngày bằng query ?days=7
+    const days = Math.max(1, Math.min(90, parseInt(req.query.days || '7', 10)));
+
+    const revenueByDay = await dbAll(`
+      SELECT
+        date(created_at) AS day,
+        COALESCE(SUM(total), 0) AS revenue,
+        COUNT(*) AS orders_count
+      FROM ordersDB.orders
+      WHERE status = 'done'
+        AND date(created_at) >= date('now', ?)
+      GROUP BY date(created_at)
+      ORDER BY date(created_at)
+    `, [`-${days - 1} days`]);
+
+    const totalRow = await dbGet(`
+      SELECT COALESCE(SUM(total), 0) AS total
+      FROM ordersDB.orders
+      WHERE status='done'
+        AND date(created_at) >= date('now', ?)
+    `, [`-${days - 1} days`]);
+
+    res.render('admin/revenue', {
+      title: 'Doanh thu theo ngày',
+      days,
+      revenueByDay,
+      totalRevenuePeriod: totalRow?.total || 0
+    });
+  } catch (err) {
+    console.error('ADMIN REVENUE ERROR:', err);
+    res.render('admin/revenue', {
+      title: 'Doanh thu theo ngày',
+      days: 7,
+      revenueByDay: [],
+      totalRevenuePeriod: 0
+    });
+  }
 });
 
 // ==================================
@@ -1156,54 +2062,116 @@ app.get('/admin', isAdmin, async (req, res) => {
     const ordersRow = await dbGet('SELECT COUNT(*) AS count FROM ordersDB.orders');
     const ordersCount = ordersRow.count;
 
-    // 4️⃣ Tổng doanh thu
-    const revenueRow = await dbGet(`
-      SELECT SUM(oi.quantity * oi.price) AS revenue
-      FROM ordersDB.order_items oi
-    `);
-    const totalRevenue = revenueRow.revenue || 0;
-
-    // 5️⃣ Đơn hôm nay
+    // 4️⃣ Tổng doanh thu (đơn 'done')
+    // 4️⃣ Doanh thu hôm nay (đơn 'done' trong ngày)
     const today = new Date().toISOString().split('T')[0];
+
+    const revenueRow = await dbGet(`
+      SELECT COALESCE(SUM(total), 0) AS revenue
+      FROM ordersDB.orders
+      WHERE status = 'done'
+        AND date(created_at) = ?
+    `, [today]);
+
+    const totalRevenue = revenueRow?.revenue || 0;
+
+
+    
+    // Số đơn pending
+    const pendingCountRow = await dbGet(`
+      SELECT COUNT(*) AS count
+      FROM ordersDB.orders
+      WHERE status = 'pending'
+    `);
+    const pendingCount = pendingCountRow.count || 0;
+
+
+  
+    // 5️⃣ Đơn cần xử lý hôm nay (pending)
     const ordersTodayRow = await dbGet(`
       SELECT COUNT(*) AS count
       FROM ordersDB.orders
-      WHERE date(created_at) = ?
+      WHERE status = 'pending'
+        AND date(created_at) = ?
     `, [today]);
-    const ordersToday = ordersTodayRow.count;
+    const ordersToday = ordersTodayRow.count || 0;
 
-    // 6️⃣ Sản phẩm bán hôm nay (kèm khách hàng)
+
+    // 6️⃣ Sản phẩm bán hôm nay (đơn 'done' trong ngày)
     const salesToday = await dbAll(`
-      SELECT p.name AS product_name, c.displayName AS customer_name, SUM(oi.quantity) AS sold
+      SELECT 
+        p.name AS product_name,
+        c.displayName AS customer_name,
+        SUM(oi.quantity) AS sold
       FROM ordersDB.order_items oi
       JOIN products p ON oi.product_id = p.id
       JOIN ordersDB.orders o ON oi.order_id = o.id
       JOIN customersDB.customers c ON o.customer_id = c.id
-      WHERE date(o.created_at) = ?
+      WHERE o.status = 'done'
+        AND date(o.created_at) = ?
       GROUP BY oi.product_id, o.customer_id
     `, [today]);
 
+
     // 7️⃣ Doanh thu 7 ngày gần nhất
     const revenueWeek = await dbAll(`
-      SELECT date(o.created_at) AS day, SUM(oi.quantity * oi.price) AS revenue
-      FROM ordersDB.orders o
-      JOIN ordersDB.order_items oi ON o.id = oi.order_id
-      WHERE date(o.created_at) >= date('now','-6 days')
-      GROUP BY date(o.created_at)
-      ORDER BY date(o.created_at)
+      SELECT date(created_at) AS day, COALESCE(SUM(total), 0) AS revenue
+      FROM ordersDB.orders
+      WHERE status = 'done'
+        AND date(created_at) >= date('now','-6 days')
+      GROUP BY date(created_at)
+      ORDER BY date(created_at)
     `);
 
+    // 8️⃣ Top 5 bán chạy (theo số lượng) — 7 ngày gần nhất
+    const topQty = await dbAll(`
+      SELECT
+        p.id AS product_id,
+        p.name AS product_name,
+        COALESCE(SUM(oi.quantity), 0) AS sold
+      FROM ordersDB.order_items oi
+      JOIN ordersDB.orders o ON o.id = oi.order_id
+      JOIN products p ON p.id = oi.product_id
+      WHERE o.status = 'done'
+        AND date(o.created_at) >= date('now','-6 days')
+      GROUP BY oi.product_id
+      ORDER BY sold DESC
+      LIMIT 5
+    `);
+
+    // 9️⃣ Top 5 doanh thu cao nhất — 7 ngày gần nhất
+    const topRevenue = await dbAll(`
+      SELECT
+        p.id AS product_id,
+        p.name AS product_name,
+        COALESCE(SUM(oi.quantity * oi.price), 0) AS revenue
+      FROM ordersDB.order_items oi
+      JOIN ordersDB.orders o ON o.id = oi.order_id
+      JOIN products p ON p.id = oi.product_id
+      WHERE o.status = 'done'
+        AND date(o.created_at) >= date('now','-6 days')
+      GROUP BY oi.product_id
+      ORDER BY revenue DESC
+      LIMIT 5
+    `);
+
+    console.log('DEBUG ordersCount =', ordersCount);
+    console.log('DEBUG pendingCount =', pendingCount);
     // Render dashboard
     res.render('admin/dashboard', {
       title: 'Admin Dashboard',
       productsCount,
       customersCount,
       ordersCount,
+      pendingCount,  
       totalRevenue,
       ordersToday,
       salesToday,
-      revenueWeek
+      revenueWeek,
+      topQty,
+      topRevenue
     });
+
 
   } catch (err) {
     console.error(err);
@@ -1215,10 +2183,78 @@ app.get('/admin', isAdmin, async (req, res) => {
       totalRevenue: 0,
       ordersToday: 0,
       salesToday: [],
-      revenueWeek: []
+      revenueWeek: [],
+      topQty: [],
+      topRevenue: []
     });
+
   }
 });
+
+// ===============================
+// ADMIN — QUẢN LÝ ĐƠN HÀNG
+// ===============================
+app.get('/admin/orders', isAdmin, async (req, res) => {
+  try {
+    const status = String(req.query.status || 'pending').trim();
+
+    // Lấy danh sách đơn theo status
+    const orders = await dbAll(`
+      SELECT 
+        o.id,
+        o.created_at,
+        o.status,
+        o.total,
+        o.phone,
+        o.address,
+        o.payment_method,
+        c.username,
+        c.displayName
+      FROM ordersDB.orders o
+      LEFT JOIN customersDB.customers c ON c.id = o.customer_id
+      WHERE o.status = ?
+      ORDER BY o.id DESC
+    `, [status]);
+
+    res.render('admin/orders', { title: 'Quản lý đơn hàng', orders, status });
+  } catch (err) {
+    console.error('ADMIN ORDERS ERROR:', err);
+    res.status(500).send('DB ERROR');
+  }
+});
+
+
+// CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
+app.post('/admin/orders/:id/status', isAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const status = String(req.body.status || '').trim();
+
+  if (!id || !status) return res.status(400).send('Bad request');
+
+  // Nếu chuyển sang shipped thì lưu shipped_at
+  if (status === 'shipped') {
+    const shippedAt = new Date().toISOString();
+    orderDB.run(`UPDATE orders SET status = ?, shipped_at = ? WHERE id = ?`, [status, shippedAt, id], (err) => {
+      if (err) {
+        console.error('Update order status error:', err);
+        return res.status(500).send('DB ERROR');
+      }
+      res.redirect('/admin/orders?status=pending');
+    });
+    return;
+  }
+
+  // Các status khác
+  orderDB.run(`UPDATE orders SET status = ? WHERE id = ?`, [status, id], (err) => {
+    if (err) {
+      console.error('Update order status error:', err);
+      return res.status(500).send('DB ERROR');
+    }
+    res.redirect('/admin/orders?status=pending');
+  });
+});
+
+
 
 // ======== QUẢN LÝ KHÁCH HÀNG ========
 
@@ -1429,10 +2465,10 @@ app.get('/admin/products', isAdmin, (req, res) => {
   `;
 
   productDB.all(sql, [], (err, products) => {
-    if (err) {
-      console.error("Lỗi truy vấn DB:", err);
-      return res.send("DB ERROR");
-    }
+      if (err) {
+        console.error("Lỗi truy vấn DB:", err);
+        return res.send("DB ERROR");
+      }
 
     // Convert variants thành array of objects
     products = products.map(p => {
@@ -1444,7 +2480,6 @@ app.get('/admin/products', isAdmin, (req, res) => {
             return { color, size, quantity };
           })
         : [];
-
       return p;
     });
 
@@ -1479,70 +2514,64 @@ app.get('/admin/products', isAdmin, (req, res) => {
 });
 
 
-app.post(
-  "/admin/products/add",
-  isAdmin,
-  upload.array("images[]", 10), // ⭐ MATCH ĐÚNG name
-  (req, res) => {
-    console.log('FILES:', req.files); // test
-    const { 
-      name, 
-      price, 
-      salePrice, 
-      shortDesc,
-      description, 
-      category, 
-      status 
-    } = req.body;
+app.post("/admin/products/add", isAdmin, upload.array("images[]", 10), (req, res) => {
+  console.log('FILES:', req.files); // test
+  const { 
+    name, 
+    price, 
+    salePrice, 
+    shortDesc,
+    description, 
+    category, 
+    status 
+  } = req.body;
 
     // Debug: log body and variant fields
-    console.log('BODY keys:', Object.keys(req.body));
-    console.log('raw variant_color[]:', req.body['variant_color[]']);
-    console.log('raw variant_size[]:', req.body['variant_size[]']);
-    console.log('raw variant_quantity[]:', req.body['variant_quantity[]']);
+  console.log('BODY keys:', Object.keys(req.body));
+  console.log('raw variant_color[]:', req.body['variant_color[]']);
+  console.log('raw variant_size[]:', req.body['variant_size[]']);
+  console.log('raw variant_quantity[]:', req.body['variant_quantity[]']);
 
     // Xử lý file đã upload: lưu đường dẫn relative (từ /public)
-    const files = req.files || [];
-    const imagePaths = files.map(f => f.path.replace(/\\/g, '/').replace(/^.*public/, ''));
-    const mainImage = imagePaths.length > 0
-    ? imagePaths[0]
-    : null;
+  const files = req.files || [];
+  const imagePaths = files.map(f => f.path.replace(/\\/g, '/').replace(/^.*public/, ''));
+  const mainImage = imagePaths.length > 0 ? imagePaths[0] : null;
 
 
     // Normalize variant fields: accept variant_color[], variant_color, or variant_color[] as keys
-    function normalizeField(keyBase) {
-      const candidates = [keyBase + '[]', keyBase, keyBase.replace(/\[\]$/, '')];
-      for (const k of candidates) {
-        if (Object.prototype.hasOwnProperty.call(req.body, k)) {
-          const v = req.body[k];
-          if (Array.isArray(v)) return v;
-          if (typeof v === 'string') return [v];
-        }
+  function normalizeField(keyBase) {
+    const candidates = [keyBase + '[]', keyBase, keyBase.replace(/\[\]$/, '')];
+    for (const k of candidates) {
+      if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+        const v = req.body[k];
+        if (Array.isArray(v)) return v;
+        if (typeof v === 'string') return [v];
       }
-      return [];
     }
+    return [];
+  }
 
-    let colors = normalizeField('variant_color');
-    let sizes = normalizeField('variant_size');
-    let quantities = normalizeField('variant_quantity');
+  let colors = normalizeField('variant_color');
+  let sizes = normalizeField('variant_size');
+  let quantities = normalizeField('variant_quantity');
 
-    const uniqueColors = [...new Set(colors)];
-    const createdAt = new Date().toISOString();
+  const uniqueColors = [...new Set(colors)];
+  const createdAt = new Date().toISOString();
 
     // Determine status: prefer explicit status field, else infer from salePrice
-    const finalStatus = (status && String(status).trim()) ? String(status).trim() : (Number(salePrice) > 0 ? 'sale' : 'normal');
+  const finalStatus = (status && String(status).trim()) ? String(status).trim() : (Number(salePrice) > 0 ? 'sale' : 'normal');
 
     // Prevent duplicate product names
-    productDB.get('SELECT id FROM products WHERE name = ?', [name], (dupErr, dupRow) => {
-      if (dupErr) {
-        console.error('Duplicate check error:', dupErr);
-        return res.send('DB ERROR');
-      }
-      if (dupRow) {
-        return res.send('Product with same name already exists');
-      }
+  productDB.get('SELECT id FROM products WHERE name = ?', [name], (dupErr, dupRow) => {
+    if (dupErr) {
+      console.error('Duplicate check error:', dupErr);
+      return res.send('DB ERROR');
+    }
+    if (dupRow) {
+      return res.send('Product with same name already exists');
+    }
 
-      productDB.run(
+    productDB.run(
       `
       INSERT INTO products
       (name, shortDescription, description, price, salePrice, category, status, createdAt, colors, image, images)
@@ -1566,14 +2595,11 @@ app.post(
           console.error(err);
           return res.send("SQL ERROR");
         }
-
         const productId = this.lastID;
-
         const sqlVariant = `
           INSERT INTO product_quantity (product_id, color, size, quantity)
           VALUES (?, ?, ?, ?)
         `;
-
         // Insert each variant with error logging
         for (let i = 0; i < colors.length; i++) {
           const color = colors[i] || '';
@@ -1588,83 +2614,93 @@ app.post(
         res.redirect('/admin/products');
       }
     );
-  }
-);
-
+  });
+});
 console.log('checkpoint E - admin products add route defined');
-
-
-// DELETE product route (remove variants then product)
-// console.log('REGISTER DELETE ROUTE');
-// app.post('/admin/products/delete/:id', isAdmin, (req, res) => {
-//   const id = Number(req.params.id);
-//   console.log('Admin delete request, user=', req.session?.user?.username, 'id=', id);
-//   if (!id) return res.status(400).send('Invalid id');
-
-//   // Verify product exists and remove any uploaded image files
-//   productDB.get('SELECT image, images FROM products WHERE id = ?', [id], (gErr, row) => {
-//     if (gErr) {
-//       console.error('Error querying product before delete:', gErr);
-//       return res.status(500).send('DB error');
-//     }
-//     if (!row) return res.status(404).send('Product not found');
-
-//     const filesToRemove = [];
-//     if (row.image) filesToRemove.push(row.image);
-//     if (row.images) {
-//       String(row.images).split(',').forEach(f => { if (f && f.trim()) filesToRemove.push(f.trim()); });
-//     }
-
-//     // Try to unlink files (best-effort)
-//     filesToRemove.forEach(f => {
-//       try {
-//         const candidate = f.startsWith('/') ? path.join(__dirname, f) : path.join(__dirname, 'public', 'uploads', f);
-//         if (fs.existsSync(candidate)) {
-//           fs.unlinkSync(candidate);
-//           console.log('Removed file:', candidate);
-//         }
-//       } catch (ue) {
-//         console.error('Failed to remove file', f, ue);
-//       }
-//     });
-
-//     // Now remove variants then product
-//     productDB.serialize(() => {
-//       productDB.run('DELETE FROM product_quantity WHERE product_id = ?', [id], (err) => {
-//         if (err) console.error('Error deleting variants:', err);
-//         productDB.run('DELETE FROM products WHERE id = ?', [id], (err2) => {
-//           if (err2) {
-//             console.error('Error deleting product:', err2);
-//             return res.status(500).send('Error deleting product');
-//           }
-//           console.log('Deleted product', id);
-//           res.redirect('/admin/products');
-//         });
-//       });
-//     });
-//   });
-// });
 
 
 // ==================================
 // 15. ADMIN — QUẢN LÝ TRẢ HÀNG
 // ==================================
-app.get('/admin/returns', isAdmin, (req, res) => {
-  res.render('admin/returns', {
-    title: 'Yêu cầu trả hàng',
-    returns: returnsList
-  });
+console.log('REGISTER /admin/returns ROUTE (REAL)');
+
+app.get('/admin/returns', isAdmin, async (req, res) => {
+  const status = String(req.query.status || 'pending');
+
+  try {
+    let where = '';
+
+    // pending: đơn đang chờ duyệt hoàn
+    if (status === 'pending') {
+      where = "(COALESCE(o.return_requested,0)=1 OR o.status='return_requested')";
+    }
+    // approved: admin đã duyệt => đang hoàn
+    else if (status === 'approved') {
+      where = "o.status='returning'";
+    }
+    // rejected: admin từ chối => khóa hoàn
+    else if (status === 'rejected') {
+      where = "COALESCE(o.return_blocked,0)=1";
+    } else {
+      where = "(COALESCE(o.return_requested,0)=1 OR o.status='return_requested')";
+    }
+
+    const rows = await dbAll(`
+      SELECT o.*, c.username, c.displayName
+      FROM ordersDB.orders o
+      LEFT JOIN customersDB.customers c ON c.id = o.customer_id
+      WHERE ${where}
+      ORDER BY o.id DESC
+    `);
+
+    return res.render('admin/returns', { title: 'Yêu cầu hoàn', rows, status });
+  } catch (err) {
+    console.error('ADMIN RETURNS ERROR:', err);
+    return res.render('admin/returns', { title: 'Yêu cầu hoàn', rows: [], status });
+  }
 });
 
-app.post('/admin/returns/approve/:id', isAdmin, (req, res) => {
-  const id = Number(req.params.id);
 
-  const r = returnsList.find((x) => x.id === id);
-  r.status = 'approved';
 
-  saveJSON(returnsPath, returnsList);
-  res.redirect('/admin/returns');
+app.post('/admin/returns/:orderId/approve', isAdmin, async (req, res) => {
+  const orderId = Number(req.params.orderId);
+  if (!orderId) return res.status(400).send('Invalid orderId');
+
+  try {
+    await dbOrderRun(
+      `UPDATE orders
+       SET status = 'returning',
+           return_requested = 0
+       WHERE id = ?`,
+      [orderId]
+    );
+    return res.redirect('/admin/returns');
+  } catch (e) {
+    console.error('APPROVE RETURN ERR:', e);
+    return res.status(500).send('DB ERROR');
+  }
 });
+
+app.post('/admin/returns/:orderId/reject', isAdmin, async (req, res) => {
+  const orderId = Number(req.params.orderId);
+  if (!orderId) return res.status(400).send('Invalid orderId');
+
+  try {
+    await dbOrderRun(
+      `UPDATE orders
+       SET status = 'done',
+           return_requested = 0,
+           return_blocked = 1
+       WHERE id = ?`,
+      [orderId]
+    );
+    return res.redirect('/admin/returns');
+  } catch (e) {
+    console.error('REJECT RETURN ERR:', e);
+    return res.status(500).send('DB ERROR');
+  }
+});
+
 
 // DEBUG: allow local non-auth deletion when in development for testing only
 if (process.env.NODE_ENV !== 'production') {
@@ -1771,25 +2807,9 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// ==================================
-// 15. ADMIN — QUẢN LÝ TRẢ HÀNG
-// ==================================
-app.get('/admin/returns', isAdmin, (req, res) => {
-  res.render('admin/returns', {
-    title: 'Yêu cầu trả hàng',
-    returns: returnsList
-  });
-});
 
-app.post('/admin/returns/approve/:id', isAdmin, (req, res) => {
-  const id = Number(req.params.id);
 
-  const r = returnsList.find((x) => x.id === id);
-  r.status = 'approved';
 
-  saveJSON(returnsPath, returnsList);
-  res.redirect('/admin/returns');
-});
 
 // DEBUG: allow local non-auth deletion when in development for testing only
 if (process.env.NODE_ENV !== 'production') {
@@ -1853,7 +2873,3 @@ if (process.env.NODE_ENV !== 'production') {
 // Remove direct app.listen here to avoid double-listen when required.
 
 // server listening is handled by `start_server.js` in development
-
-// Small balancing closers (fix module parse if any wrapper left open)
-});
-
