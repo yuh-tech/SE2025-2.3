@@ -92,8 +92,8 @@ Client Application sử dụng Authorization Server để:
 - Trang sản phẩm, xem chi tiết sản phẩm
 - Giỏ hàng, đặt hàng, xem đơn mua
 - Đánh giá sản phẩm theo đơn hàng (review)
-- Luồng hoàn hàng cơ bản (return request) *(tuỳ nhóm triển khai)*
-- Admin: quản lý đơn hàng, sản phẩm, thống kê doanh thu *(tuỳ nhóm triển khai)*
+- Luồng hoàn hàng cơ bản (return request) 
+- Admin: quản lý đơn hàng, sản phẩm, thống kê doanh thu 
 
 ---
 
