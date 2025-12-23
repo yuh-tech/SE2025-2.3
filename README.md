@@ -3,48 +3,51 @@
 ## 1. Goals and Objectives
 
 ### 1.1. Goal (Mục tiêu tổng quát)
-Mục tiêu của đồ án là xây dựng một **hệ thống OAuth 2.0 và OpenID Connect hoàn chỉnh**, bao gồm **Authorization Server** và **Client Application**, nhằm mô phỏng cơ chế xác thực và ủy quyền hiện đại được sử dụng rộng rãi trong các hệ thống web hiện nay.
+Mục tiêu của đồ án là xây dựng một **hệ thống OAuth 2.0 và OpenID Connect hoàn chỉnh**, bao gồm:
+- **Authorization Server** (máy chủ xác thực & cấp phát token)
+- **Client Application** (ứng dụng client sử dụng cơ chế OAuth/OIDC)
 
-Hệ thống cho phép người dùng đăng nhập thông qua cơ chế OAuth/OpenID Connect thay vì sử dụng tài khoản cục bộ, từ đó nâng cao tính bảo mật, khả năng mở rộng và trải nghiệm người dùng.
+Hệ thống mô phỏng cơ chế **xác thực (Authentication)** và **uỷ quyền (Authorization)** hiện đại, giúp người dùng đăng nhập thông qua OAuth/OpenID Connect thay vì tài khoản cục bộ, từ đó:
+- Tăng bảo mật
+- Dễ mở rộng cho nhiều ứng dụng client
+- Cải thiện trải nghiệm đăng nhập (SSO)
 
 ---
 
 ### 1.2. Objectives (Mục tiêu cụ thể)
 
 #### 1.2.1. Đối với Authorization Server
-Hệ thống Authorization Server cần đáp ứng các mục tiêu sau:
-- Cung cấp cơ chế **xác thực người dùng**
-- Cấp phát **Authorization Code**
-- Cấp phát **Access Token**
-- Cấp phát **ID Token** theo chuẩn OpenID Connect
-- Xác thực và quản lý thông tin người dùng
-- Đảm bảo quy trình xác thực tuân theo chuẩn OAuth 2.0 và OpenID Connect
-
----
+Authorization Server cần đáp ứng:
+- Xác thực người dùng (Login)
+- Cấp **Authorization Code**
+- Đổi **Authorization Code** lấy **Access Token**
+- Cấp **ID Token** theo chuẩn OpenID Connect
+- Quản lý thông tin định danh (User/Claims)
+- Đảm bảo luồng đúng chuẩn OAuth 2.0 / OpenID Connect
 
 #### 1.2.2. Đối với Client Application
-Client Application đóng vai trò là ứng dụng sử dụng OAuth/OpenID Connect, với các mục tiêu:
-- Thực hiện đăng nhập người dùng thông qua Authorization Server
-- Nhận và xử lý Access Token / ID Token
-- Sử dụng thông tin định danh người dùng sau khi xác thực thành công
-- Không yêu cầu người dùng tạo tài khoản riêng trên Client Application
+Client Application cần:
+- Redirect người dùng sang Authorization Server để đăng nhập
+- Nhận Authorization Code và thực hiện trao đổi lấy token
+- Lưu phiên đăng nhập (session) và hiển thị thông tin người dùng
+- Minh hoạ việc áp dụng OAuth/OIDC vào ứng dụng web thực tế
 
----
-
-#### 1.2.3. Ứng dụng minh hoạ
-Một **website bán hàng thời trang** được xây dựng nhằm:
+#### 1.2.3. Ứng dụng minh hoạ (Phụ)
+Một **website bán hàng thời trang** được xây dựng để:
 - Đóng vai trò **Client Application minh hoạ**
-- Kiểm chứng khả năng tích hợp OAuth/OpenID Connect vào hệ thống web thực tế
-- Mô phỏng kịch bản người dùng đăng nhập và sử dụng dịch vụ sau khi được xác thực
+- Mô phỏng kịch bản người dùng đăng nhập và sử dụng hệ thống sau xác thực
+- Thể hiện tích hợp OAuth/OIDC vào một web ứng dụng thực tế
+
+> Lưu ý: Website bán hàng là phần minh hoạ phụ, trọng tâm chính của đồ án là hệ thống OAuth/OIDC.
 
 ---
 
 ### 1.3. Technical Objectives (Mục tiêu kỹ thuật)
-- Áp dụng chuẩn **OAuth 2.0** trong xác thực và uỷ quyền
-- Áp dụng chuẩn **OpenID Connect** cho xác thực danh tính
-- Tách biệt rõ ràng giữa **Authorization Server** và **Client Application**
-- Đảm bảo luồng xác thực an toàn và đúng chuẩn
-- Thiết kế hệ thống có thể mở rộng cho nhiều client khác nhau trong tương lai
+- Áp dụng chuẩn **OAuth 2.0 Authorization Code Flow**
+- Áp dụng chuẩn **OpenID Connect** để xác thực danh tính
+- Tách biệt rõ **Authorization Server** và **Client Application**
+- Token/phiên làm việc rõ ràng, dễ kiểm thử
+- Có thể mở rộng thêm nhiều client trong tương lai
 
 ---
 
@@ -53,49 +56,113 @@ Một **website bán hàng thời trang** được xây dựng nhằm:
 ### 2.1. Authorization Server
 Authorization Server chịu trách nhiệm:
 - Xác thực người dùng
-- Cấp phát token
-- Quản lý thông tin định danh
-- Đảm bảo an toàn trong quá trình xác thực
+- Cấp Authorization Code
+- Cấp Access Token
+- Cấp ID Token (OIDC)
+- Cung cấp thông tin người dùng (claims) cho Client theo token
 
----
-
-### 2.2. Client Application
-Client Application là ứng dụng sử dụng dịch vụ xác thực từ Authorization Server.  
-Trong đồ án này, **website bán hàng thời trang** được sử dụng làm client để minh hoạ quá trình tích hợp OAuth/OpenID Connect vào hệ thống web.
+### 2.2. Client Application (Website bán hàng thời trang)
+Client Application sử dụng Authorization Server để:
+- Cho người dùng đăng nhập bằng OAuth/OIDC
+- Sau đăng nhập, người dùng có thể sử dụng các tính năng của website (mua sắm/đơn hàng...)
+- Có trang quản trị (admin) phục vụ quản lý đơn hàng, doanh thu... (phần minh hoạ)
 
 ---
 
 ## 3. Technologies Used
-- **Ngôn ngữ lập trình:** JavaScript
+- **Ngôn ngữ:** JavaScript
 - **Backend:** Node.js, Express
-- **Authentication & Authorization:** OAuth 2.0, OpenID Connect
+- **OAuth/OIDC:** Authorization Code Flow, ID Token, Access Token
 - **Database:** SQLite
 - **Template Engine:** EJS
 - **Frontend:** HTML, CSS
-- **Session Management:** express-session
+- **Session:** express-session
 
 ---
 
-## 4. Authentication Flow Overview
-Hệ thống thực hiện luồng xác thực theo chuẩn OAuth 2.0 / OpenID Connect:
+## 4. Key Features (Tính năng chính)
+
+### 4.1. Authorization Server
+- Đăng nhập người dùng (Authentication)
+- Cấp Authorization Code
+- Token endpoint: đổi code lấy Access Token / ID Token
+- (Tuỳ triển khai) userinfo/claims lấy thông tin user dựa trên token
+
+### 4.2. Client Application (Web bán hàng thời trang - minh hoạ)
+- Trang sản phẩm, xem chi tiết sản phẩm
+- Giỏ hàng, đặt hàng, xem đơn mua
+- Đánh giá sản phẩm theo đơn hàng (review)
+- Luồng hoàn hàng cơ bản (return request) *(tuỳ nhóm triển khai)*
+- Admin: quản lý đơn hàng, sản phẩm, thống kê doanh thu *(tuỳ nhóm triển khai)*
+
+---
+
+## 5. Authentication Flow Overview
+Luồng xác thực OAuth 2.0 / OpenID Connect:
 1. Người dùng truy cập Client Application
-2. Client chuyển hướng người dùng tới Authorization Server
+2. Client redirect sang Authorization Server
 3. Người dùng đăng nhập tại Authorization Server
-4. Authorization Server cấp Authorization Code
-5. Client đổi Authorization Code lấy Access Token và ID Token
-6. Người dùng được xác thực và truy cập hệ thống
+4. Authorization Server trả về Authorization Code
+5. Client đổi Authorization Code lấy Access Token + ID Token
+6. Client tạo phiên đăng nhập và cho phép truy cập hệ thống
 
 ---
 
-## 5. Conclusion
-Đồ án đã xây dựng thành công một **hệ thống OAuth / OpenID Connect hoàn chỉnh**, đáp ứng đầy đủ các thành phần cốt lõi của cơ chế xác thực và uỷ quyền hiện đại.
+## 6. Installation & Run (Cài đặt và chạy dự án)
 
-Client Application được xây dựng nhằm minh hoạ khả năng tích hợp OAuth/OpenID Connect vào một hệ thống web thực tế, từ đó chứng minh tính ứng dụng và hiệu quả của mô hình.
+### 6.1. Yêu cầu môi trường
+- Node.js (khuyến nghị >= 16)
+- npm (đi kèm Node.js)
+
+### 6.2. Cài đặt dependencies
+Mở terminal tại thư mục dự án:
+
+```bash
+cd SE2025-2.3
+cd client-app
+npm install
+```
+### 6.3. Chạy Client Application (web bán hàng)
+```bash
+node start_server.js
+```
 
 ---
 
-## 6. References
-- OAuth 2.0 Specification
-- OpenID Connect Core Specification
-- Node.js Documentation
-- Express.js Documentation
+## 7. Demo Accounts (Tài khoản demo)
+
+Admin:
+
+username: admin
+
+password: 123456
+
+---
+
+## 8. Contribution
+Vũ Quang Huy - 22001595
+- Thiết kế & triển khai Authorization Server (OAuth 2.0 + OIDC)
+- Luồng cấp code, token, id_token
+- Tích hợp Client với Authorization Server
+- Session, callback, xử lý token
+
+Nguyễn Thị Minh Hằng - 22001575
+- Xây dựng website minh hoạ (UI/DB sản phẩm, giỏ hàng, đơn hàng, admin dashboard)
+- Kiểm thử, viết tài liệu, tổng hợp báo cáo
+
+---
+
+## 9. Conclusion
+
+Đồ án đã xây dựng thành công một hệ thống OAuth / OpenID Connect hoàn chỉnh gồm Authorization Server và Client Application.
+Website bán hàng thời trang được sử dụng như một ứng dụng minh hoạ để chứng minh khả năng tích hợp OAuth/OIDC vào một hệ thống web thực tế.
+
+## 10. References
+
+OAuth 2.0 Specification
+
+OpenID Connect Core Specification
+
+Node.js Documentation
+
+Express.js Documentation
