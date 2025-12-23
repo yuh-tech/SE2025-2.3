@@ -1,0 +1,101 @@
+<%- include('partials/header') %>
+
+<div class="container" style="max-width:720px;margin:30px auto;">
+  <h1>Đánh giá sản phẩm</h1>
+
+  <div class="review-box">
+    <div class="product">
+      <img src="<%= product.image %>" alt="">
+      <div>
+        <h3><%= product.name %></h3>
+        <p>Đơn hàng #<%= order.id %></p>
+      </div>
+    </div>
+
+    <form method="POST" action="/orders/<%= order.id %>/review/<%= product.id %>">
+      <div class="stars">
+        <% for (let i = 5; i >= 1; i--) { %>
+          <input type="radio" id="star<%= i %>" name="rating" value="<%= i %>" required>
+          <label for="star<%= i %>">★</label>
+        <% } %>
+      </div>
+
+      <textarea name="comment" rows="4"
+        placeholder="Hãy chia sẻ cảm nhận của bạn về sản phẩm này..."
+        required></textarea>
+
+      <div class="actions">
+        <a href="/orders/<%= order.id %>" class="btn btn-outline">Quay lại</a>
+        <button class="btn btn-primary" type="submit">Gửi đánh giá</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.review-box{
+  background:#fff;
+  border-radius:16px;
+  padding:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+.product{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin-bottom:16px;
+}
+.product img{
+  width:80px;height:80px;
+  border-radius:12px;
+  object-fit:cover;
+  background:#f3f3f3;
+}
+.stars{
+  display:flex;
+  flex-direction:row-reverse;
+  justify-content:flex-start;
+  margin:12px 0;
+}
+.stars input{display:none}
+.stars label{
+  font-size:28px;
+  color:#ccc;
+  cursor:pointer;
+}
+.stars input:checked ~ label,
+.stars label:hover,
+.stars label:hover ~ label{
+  color:#ffc107;
+}
+textarea{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  resize:none;
+}
+.actions{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+}
+.btn{
+  padding:10px 16px;
+  border-radius:999px;
+  text-decoration:none;
+  font-weight:600;
+}
+.btn-primary{
+  background:#ff6b9d;
+  color:#fff;
+  border:none;
+}
+.btn-outline{
+  border:2px solid #ff6b9d;
+  color:#ff6b9d;
+}
+</style>
+
+<%- include('partials/footer') %>
