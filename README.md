@@ -64,7 +64,7 @@ Authorization Server chịu trách nhiệm:
 Client Application sử dụng Authorization Server để:
 - Cho người dùng đăng nhập bằng OAuth/OIDC
 - Sau đăng nhập, người dùng có thể sử dụng các tính năng của website (mua sắm/đơn hàng...)
-- Có trang quản trị (admin) phục vụ quản lý đơn hàng, doanh thu... (phần minh hoạ)
+- Có trang quản trị (admin) phục vụ quản lý đơn hàng, doanh thu... 
 
 ---
 
@@ -85,7 +85,7 @@ Client Application sử dụng Authorization Server để:
 - Đăng nhập người dùng (Authentication)
 - Cấp Authorization Code
 - Token endpoint: đổi code lấy Access Token / ID Token
-- (Tuỳ triển khai) userinfo/claims lấy thông tin user dựa trên token
+- userinfo/claims lấy thông tin user dựa trên token
 
 ### 4.2. Client Application (Web bán hàng thời trang - minh hoạ)
 - Trang sản phẩm, xem chi tiết sản phẩm
@@ -113,28 +113,28 @@ Luồng xác thực OAuth 2.0 / OpenID Connect:
 - Node.js (khuyến nghị >= 16)
 - npm (đi kèm Node.js)
 
-### 6.2. Cài đặt dependencies
-Mở terminal tại thư mục dự án:
-
+### 6.2. Hướng dẫn chạy
 ```bash
-cd SE2025-2.3
-cd client-app
-npm install
-```
-### 6.3. Chạy Client Application (web bán hàng)
-```bash
-node start_server.js
+cd ..
+docker compose -f docker-compose-base.yml up -d
 ```
 
 ---
 
 ## 7. Demo Accounts (Tài khoản demo)
 
-Admin:
+Client app:
 
 username: admin
 
 password: 123456
+
+Oauth server:
+
+username: admin
+
+password: admin123
+
 
 ---
 
