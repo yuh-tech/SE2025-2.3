@@ -77,6 +77,33 @@ Trong đồ án này, **website bán hàng thời trang** được sử dụng l
 ---
 
 ## 4. Project Structure
+SE2025_2-#/
+├── authorization-server/
+│   ├── database/                # CSDL người dùng, client, token
+│   ├── routes/                  # OAuth endpoints (authorize, token, userinfo)
+│   ├── services/                # Xử lý logic xác thực & cấp token
+│   ├── views/                   # Giao diện đăng nhập / consent
+│   ├── server.js                # Entry point Authorization Server
+│   └── package.json
+│
+├── client-app/
+│   ├── database/                # SQLite DB (products, orders, customers)
+│   ├── public/
+│   │   ├── uploads/             # Ảnh sản phẩm upload
+│   │   ├── images/              
+│   │   └── style.css
+│   ├── scripts/
+│   │   └── seed_products.js     # Script seed dữ liệu sản phẩm demo
+│   ├── views/
+│   │   ├── admin/               # Giao diện quản trị
+│   │   ├── partials/            # Header / Footer dùng chung
+│   │   └── *.ejs                # Các view phía client
+│   ├── server.js                # Logic xử lý Client Application
+│   ├── start_server.js          # File khởi chạy client-app
+│   └── package.json
+│
+├── README.md                    # Báo cáo đồ án 
+└── package.json
 
 ---
 
