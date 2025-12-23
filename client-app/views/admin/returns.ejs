@@ -1,50 +1,101 @@
 <%- include('../partials/header') %>
 
 <div class="admin-container">
-  <h1 class="admin-title">Yêu cầu trả hàng</h1>
+  <div class="page-head">
+    <h1 class="admin-title">Quản lý hoàn hàng</h1>
+    <a href="/admin/orders?status=pending" class="btn-back">← Quay lại quản lý đơn hàng</a>
+  </div>
 
-  <table class="return-table">
-    <tr>
-      <th>ID</th>
-      <th>Order ID</th>
-      <th>User</th>
-      <th>Trạng thái</th>
-      <th>Duyệt</th>
-    </tr>
+  <div class="tabs">
+    <% const current = String(status || 'pending'); %>
+    <a class="tab <%= current==='pending' ? 'active' : '' %>" href="/admin/returns?status=pending">Chờ duyệt</a>
+    <a class="tab <%= current==='approved' ? 'active' : '' %>" href="/admin/returns?status=approved">Đã duyệt</a>
+    <a class="tab <%= current==='rejected' ? 'active' : '' %>" href="/admin/returns?status=rejected">Từ chối</a>
+  </div>
 
-    <% returns.forEach(r => { %>
-      <tr>
-        <td><%= r.id %></td>
-        <td><%= r.orderId %></td>
-        <td><%= r.user %></td>
-        <td><%= r.status %></td>
+  <div class="table-wrap">
+    <table class="styled-table">
+      <thead>
+        <tr>
+          <th>Mã yêu cầu</th>
+          <th>Mã đơn</th>
+          <th>Khách hàng</th>
+          <th>Ngày tạo</th>
+          <th>Trạng thái</th>
+          <th style="width:220px;">Xử lý</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% const list = Array.isArray(rows) ? rows : []; %>
+        <% if (list.length === 0) { %>
+          <tr><td colspan="6">Chưa có yêu cầu hoàn nào</td></tr>
+        <% } else { %>
+          <% list.forEach(o => { %>
+            <tr>
+              <td>#<%= o.id %></td>
+              <td>#<%= o.id %></td>
+              <td><%= o.displayName || o.username || ('KH #' + o.customer_id) %></td>
+              <td><%= o.created_at || '-' %></td>
+              <td>
+                <% 
+                  // map trạng thái hiển thị theo tab
+                  const badge = (current === 'pending') ? 'pending'
+                              : (current === 'approved') ? 'approved'
+                              : (current === 'rejected') ? 'rejected'
+                              : 'pending';
+                %>
+                <span class="badge <%= badge %>"><%= badge %></span>
+              </td>
+              <td>
+                <% if (current === 'pending') { %>
+                  <form method="POST" action="/admin/returns/<%= o.id %>/approve" style="display:inline;">
+                    <button class="btn btn-ok" type="submit">Duyệt</button>
+                  </form>
+                  <form method="POST" action="/admin/returns/<%= o.id %>/reject" style="display:inline;">
+                    <button class="btn btn-no" type="submit">Từ chối</button>
+                  </form>
+                <% } else { %>
+                  <span style="color:#777;">—</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
 
-        <td>
-          <% if (r.status === 'pending') { %>
-            <form method="POST" action="/admin/returns/approve/<%= r.id %>">
-              <button class="approve-btn">Duyệt</button>
-            </form>
-          <% } else { %>
-            ✔ Đã duyệt
-          <% } %>
-        </td>
-      </tr>
-    <% }) %>
-  </table>
+    </table>
+  </div>
 </div>
 
-<style>
-.return-table {
-  width:100%; border-collapse:collapse;
-}
-.return-table th, .return-table td {
-  border:1px solid #ddd; padding:10px; text-align:center;
-}
-.approve-btn {
-  background:#88d8b0; border:none; padding:6px 12px;
-  border-radius:6px; cursor:pointer; font-weight:bold;
-}
-.approve-btn:hover { background:#66c49c; }
-</style>
-
 <%- include('../partials/footer') %>
+
+<style>
+.admin-container{max-width:1200px;margin:40px auto;padding:0 20px;font-family:'Segoe UI',sans-serif;}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
+.admin-title{margin:0;font-size:34px;color:#222;}
+.btn-back{background:#4e73df;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:600;}
+.btn-back:hover{filter:brightness(.95);}
+
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 18px;}
+.tab{padding:10px 16px;border-radius:999px;border:1px solid #ddd;background:#fff;text-decoration:none;color:#333;font-weight:600;}
+.tab.active{border-color:#ff6b9d;color:#ff6b9d;background:#fff5fa;}
+
+.table-wrap{background:#fff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);overflow:hidden;}
+.styled-table{width:100%;border-collapse:collapse;}
+.styled-table th,.styled-table td{padding:12px 14px;text-align:left;}
+.styled-table thead tr{background:#4e73df;color:#fff;font-weight:700;}
+.styled-table tbody tr{border-bottom:1px solid #eee;}
+.styled-table tbody tr:nth-of-type(even){background:#fafafa;}
+.styled-table tbody tr:hover{background:#f3f7ff;}
+
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px;background:#eee;color:#333;}
+.badge.pending{background:#fff5d6;color:#9a6b00;}
+.badge.approved{background:#dff7ea;color:#136b3a;}
+.badge.rejected{background:#ffe1e1;color:#9b1c1c;}
+
+.btn{border:none;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer;}
+.btn-ok{background:#a8e6cf;color:#155d42;}
+.btn-ok:hover{filter:brightness(.95);}
+.btn-no{background:#ffd6d6;color:#8a1f1f;margin-left:8px;}
+.btn-no:hover{filter:brightness(.95);}
+</style>

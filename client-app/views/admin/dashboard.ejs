@@ -24,22 +24,27 @@
       </div>
     </a>
 
-
-    <div class="stat-card card-orders">
+    
+    <a href="/admin/orders?status=pending" class="stat-card card-orders stat-link">
       <div class="card-icon">🛒</div>
       <div class="card-info">
         <h3>Tổng đơn hàng</h3>
         <p><%= typeof ordersCount !== 'undefined' ? ordersCount : 0 %></p>
-      </div>
-    </div>
 
-    <div class="stat-card card-revenue">
+        <div class="card-sub">
+          Chờ xử lý: <strong><%= typeof pendingCount !== 'undefined' ? pendingCount : 0 %></strong>
+        </div>
+      </div>
+    </a>
+
+    <a href="/admin/revenue" class="stat-card card-revenue stat-link">
       <div class="card-icon">💰</div>
       <div class="card-info">
         <h3>Doanh thu</h3>
-        <p>$<%= typeof totalRevenue !== 'undefined' ? totalRevenue : 0 %></p>
+        <p><%= (typeof totalRevenue !== 'undefined' ? totalRevenue : 0).toLocaleString('vi-VN') %> ₫</p>
       </div>
-    </div>
+    </a>
+
   </div>
 
   <!-- ===== BẢNG SẢN PHẨM BÁN HÔM NAY ===== -->
@@ -67,12 +72,80 @@
           <% }) %>
         <% } %>
       </tbody>
+
     </table>
   </div>
 
   <!-- ===== BIỂU ĐỒ DOANH THU 7 NGÀY ===== -->
   <h2>Doanh thu 7 ngày gần nhất</h2>
   <canvas id="revenueChart"></canvas>
+
+    <!-- ===== TOP 5 PRODUCTS ===== -->
+  <div class="top5-grid">
+    <!-- Top 5 theo số lượng -->
+    <div class="top5-card">
+      <div class="top5-head">
+        <h3>Top 5 bán chạy (theo số lượng)</h3>
+        <span class="hint">7 ngày gần nhất</span>
+      </div>
+
+      <% const safeTopQty = (typeof topQty !== 'undefined' && Array.isArray(topQty)) ? topQty : []; %>
+      <% if (safeTopQty.length === 0) { %>
+        <div class="empty-mini">Chưa có dữ liệu.</div>
+      <% } else { %>
+        <table class="mini-table">
+          <thead>
+            <tr>
+              <th style="width:52px;">#</th>
+              <th>Sản phẩm</th>
+              <th style="width:120px;text-align:right;">Đã bán</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% safeTopQty.forEach((p, idx) => { %>
+              <tr>
+                <td><span class="rank">#<%= idx + 1 %></span></td>
+                <td><%= p.product_name || p.name || '—' %></td>
+                <td style="text-align:right;"><strong><%= p.sold ?? p.qty ?? 0 %></strong></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+
+    <!-- Top 5 theo doanh thu -->
+    <div class="top5-card">
+      <div class="top5-head">
+        <h3>Top 5 doanh thu cao nhất</h3>
+        <span class="hint">7 ngày gần nhất</span>
+      </div>
+
+      <% const safeTopRevenue = (typeof topRevenue !== 'undefined' && Array.isArray(topRevenue)) ? topRevenue : []; %>
+      <% if (safeTopRevenue.length === 0) { %>
+        <div class="empty-mini">Chưa có dữ liệu.</div>
+      <% } else { %>
+        <table class="mini-table">
+          <thead>
+            <tr>
+              <th style="width:52px;">#</th>
+              <th>Sản phẩm</th>
+              <th style="width:160px;text-align:right;">Doanh thu</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% safeTopRevenue.forEach((p, idx) => { %>
+              <tr>
+                <td><span class="rank">#<%= idx + 1 %></span></td>
+                <td><%= p.product_name || p.name || '—' %></td>
+                <td style="text-align:right;"><strong><%= (p.revenue ?? p.total ?? 0).toLocaleString('vi-VN') %> ₫</strong></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
 
 </div>
 
@@ -81,35 +154,50 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const safeRevenueWeek = Array.isArray(revenueWeek) ? revenueWeek : [];
-  const labels = safeRevenueWeek.map(r => r.day || '');
-  const data = safeRevenueWeek.map(r => r.revenue || 0);
+  // Chuyển dữ liệu từ server (EJS) sang JS an toàn
+  const safeRevenueWeek = <%- JSON.stringify(Array.isArray(revenueWeek) ? revenueWeek : []) %>;
 
-  new Chart(document.getElementById('revenueChart'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Doanh thu ($)',
-        data,
-        borderColor: '#4e73df',
-        backgroundColor: 'rgba(78, 115, 223, 0.1)',
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: true },
-        tooltip: { mode: 'index', intersect: false }
+  const labels = safeRevenueWeek.map(r => r.day || '');
+  const data = safeRevenueWeek.map(r => Number(r.revenue || 0));
+
+  const canvas = document.getElementById('revenueChart');
+
+  // Nếu không có data -> show message
+  if (!labels.length) {
+    // tạo 1 dòng chữ thay vì chart trống
+    const p = document.createElement('p');
+    p.textContent = 'Chưa có dữ liệu doanh thu 7 ngày gần nhất.';
+    p.style.color = '#666';
+    p.style.marginTop = '12px';
+    canvas.insertAdjacentElement('afterend', p);
+  } else {
+    new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Doanh thu (₫)',
+          data,
+          borderColor: '#4e73df',
+          backgroundColor: 'rgba(78, 115, 223, 0.1)',
+          tension: 0.3,
+          fill: true
+        }]
       },
-      scales: {
-        y: { beginAtZero: true }
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
       }
-    }
-  });
+    });
+  }
 </script>
+
 
 <style>
 .admin-container {
@@ -200,6 +288,64 @@ canvas#revenueChart { width: 100% !important; max-height: 300px; }
   display: flex;
   align-items: center;
 }
+.card-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #666;
+}
+.card-sub strong {
+  color: #111;
+}
+/* ===== TOP 5 ===== */
+.top5-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:16px;
+  margin-top:18px;
+  margin-bottom:20px;
+}
+.top5-card{
+  background:#fff;
+  border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,.08);
+  padding:14px 14px 10px;
+}
+.top5-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:12px;
+  margin-bottom:10px;
+}
+.top5-head h3{ margin:0; font-size:16px; color:#222; }
+.hint{ font-size:12px; color:#6b7280; }
+
+.mini-table{ width:100%; border-collapse:collapse; }
+.mini-table th,.mini-table td{ padding:10px 10px; border-bottom:1px solid #eee; }
+.mini-table th{ font-size:12px; color:#6b7280; font-weight:700; }
+.rank{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#f3f4f6;
+  font-weight:800;
+  font-size:12px;
+  color:#111;
+}
+.empty-mini{
+  padding:14px;
+  color:#6b7280;
+  background:#f9fafb;
+  border:1px dashed #e5e7eb;
+  border-radius:12px;
+}
+
+/* mobile */
+@media (max-width: 900px){
+  .top5-grid{ grid-template-columns: 1fr; }
+}
+
+
 
 
 </style>

@@ -1,46 +1,158 @@
 <%- include('../partials/header') %>
 
-<div class="admin-container">
-  <h1 class="admin-title">Quản lý đơn hàng</h1>
+<div class="container" style="max-width:1150px;margin:40px auto;padding:0 20px;">
+  <div class="page-top">
+    <h1 class="page-title">Quản lý đơn hàng</h1>
+    <a href="/admin" class="back-dash">← Quay lại Dashboard</a>
+  </div>
 
-  <table class="order-table">
-    <tr>
-      <th>ID</th>
-      <th>Khách hàng</th>
-      <th>Tổng tiền</th>
-      <th>Trạng thái</th>
-      <th>Cập nhật</th>
-    </tr>
 
-    <% orders.forEach(o => { %>
-      <tr>
-        <td><%= o.id %></td>
-        <td><%= o.user %></td>
-        <td><%= o.total.toLocaleString('vi-VN') %> ₫</td>
-        <td><%= o.status %></td>
-        <td>
-          <form method="POST" action="/admin/orders/update/<%= o.id %>">
-            <select name="status">
-              <option value="processing">processing</option>
-              <option value="packing">packing</option>
-              <option value="shipping">shipping</option>
-              <option value="delivered">delivered</option>
-            </select>
-            <button>OK</button>
-          </form>
-        </td>
-      </tr>
-    <% }) %>
-  </table>
+  <div class="tabs">
+    <a class="tab <%= status==='pending'?'active':'' %>" href="/admin/orders?status=pending">Chờ xử lý</a>
+    <a class="tab <%= status==='processing'?'active':'' %>" href="/admin/orders?status=processing">Đang xử lý</a>
+    <a class="tab <%= status==='shipped'?'active':'' %>" href="/admin/orders?status=shipped">Đang giao</a>
+    <a class="tab <%= status==='done'?'active':'' %>" href="/admin/orders?status=done">Hoàn tất</a>
+    <a href="/admin/returns" class="tab">Yêu cầu hoàn</a>
+    <a class="tab <%= status==='returning' ? 'active' : '' %>" href="/admin/orders?status=returning">Đang hoàn</a>
+    <a class="tab <%= status==='returned' ? 'active' : '' %>" href="/admin/orders?status=returned">Đã hoàn</a>
+    <a class="tab <%= status==='cancelled'?'active':'' %>" href="/admin/orders?status=cancelled">Đã huỷ</a>
+  </div>
+
+  <% if (!orders || orders.length === 0) { %>
+    <div class="empty-box">
+      Không có đơn nào ở trạng thái "<%= status %>".
+    </div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Mã đơn</th>
+            <th>Khách hàng</th>
+            <th>Ngày tạo</th>
+            <th>Tổng tiền</th>
+            <th>Liên hệ</th>
+            <th>Thanh toán</th>
+            <th>Trạng thái</th>
+            <th>Xử lý</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach(o => { %>
+            <tr>
+              <td class="mono">#<%= o.id %></td>
+
+              <td>
+                <div style="font-weight:700;"><%= o.displayName || o.username || 'Khách' %></div>
+                <% if (o.username) { %>
+                  <div class="muted">@<%= o.username %></div>
+                <% } %>
+              </td>
+
+              <td class="muted"><%= o.created_at || '' %></td>
+
+              <td style="text-align:right;font-weight:800;">
+                <%= Number(o.total || 0).toLocaleString('vi-VN') %> ₫
+              </td>
+
+              <td>
+                <div class="muted"><%= o.phone || '--' %></div>
+                <div class="muted" style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  <%= o.address || '--' %>
+                </div>
+              </td>
+
+              <td class="muted"><%= o.payment_method || '--' %></td>
+
+              <td>
+                <span class="pill"><%= o.status %></span>
+              </td>
+
+              <td>
+                <form method="POST" action="/admin/orders/<%= o.id %>/status" class="actions">
+                  <select name="status">
+                    <option value="pending" <%= o.status==='pending'?'selected':'' %>>pending</option>
+                    <option value="processing" <%= o.status==='processing'?'selected':'' %>>processing</option>
+                    <option value="shipped" <%= o.status==='shipped'?'selected':'' %>>shipped</option>
+                    <option value="done" <%= o.status==='done'?'selected':'' %>>done</option>
+                    <option value="returning" <%= o.status==='returning' ? 'selected' : '' %>>returning</option>
+                    <option value="returned"  <%= o.status==='returned'  ? 'selected' : '' %>>returned</option>
+                    <option value="cancelled" <%= o.status==='cancelled'?'selected':'' %>>cancelled</option>
+                  </select>
+                  <button type="submit" class="btn">Cập nhật</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
 </div>
 
 <style>
-.order-table {
-  width:100%; border-collapse:collapse; margin-top:20px;
+  .tabs{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 18px;}
+  .tab{
+    text-decoration:none;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid #eee;
+    background:#fff;
+    color:#333;
+    font-weight:700;
+  }
+  .tab.active{border-color:#ff6b9d;color:#ff6b9d;}
+  .empty-box{
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:14px;
+    padding:18px;
+    color:#666;
+  }
+  .table-wrap{
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .tbl{width:100%;border-collapse:collapse;}
+  .tbl thead{background:#f7f7f7;}
+  .tbl th,.tbl td{padding:14px;border-top:1px solid #eee;text-align:left;vertical-align:top;}
+  .tbl th{font-size:13px;color:#444;}
+  .muted{color:#777;font-size:12px;}
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-weight:800;}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#f2f2f2;font-size:12px;font-weight:800;}
+  .actions{display:flex;gap:8px;align-items:center;}
+  select{padding:8px 10px;border:1px solid #ddd;border-radius:10px;}
+  .btn{padding:9px 12px;border:none;border-radius:10px;background:#ff6b9d;color:#fff;font-weight:800;cursor:pointer;}
+  .page-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 16px;
 }
-.order-table th, .order-table td {
-  border:1px solid #ddd; padding:12px; text-align:center;
+.page-title{
+  margin:0;
 }
+.back-dash{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 16px;
+  border-radius:10px;
+  text-decoration:none;
+  background:#4f73ff;
+  color:#fff;
+  font-weight:700;
+  box-shadow:0 8px 20px rgba(79,115,255,0.25);
+  transition:0.2s;
+}
+.back-dash:hover{
+  transform:translateY(-1px);
+  filter:brightness(0.98);
+}
+
 </style>
 
 <%- include('../partials/footer') %>
