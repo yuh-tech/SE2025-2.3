@@ -23,8 +23,8 @@ const clients = [
     client_secret: 'demo-client-secret', // cần plain để provider xác thực
     client_secret_hashed: hashSecret('demo-client-secret'), // lưu trữ/an audit
     client_name: 'Sunshine Boutique',
-    redirect_uris: ['http://localhost:3001/callback'],
-    post_logout_redirect_uris: ['http://localhost:3001', 'http://localhost:3001/login'],
+    redirect_uris: ['http://34.172.38.55:80/callback'],
+    post_logout_redirect_uris: ['http://34.172.38.55:80', 'http://34.172.38.55:80/login'],
     response_types: ['code'], // Authorization Code Flow
     grant_types: ['authorization_code', 'refresh_token'],
     scope: 'openid profile email offline_access',

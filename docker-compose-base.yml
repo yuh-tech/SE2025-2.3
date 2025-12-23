@@ -27,7 +27,7 @@ services:
       # Kết nối tới service postgres qua mạng nội bộ compose (không dùng localhost)
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mydb
     ports:
-      - "3000:3000"
+      - "443:3000"
     restart: unless-stopped
     depends_on:
       postgres:
@@ -37,7 +37,7 @@ services:
     build: ./client-app
     env_file: ./client-app/.env
     ports:
-      - "3001:3001"
+      - "80:3001"
     restart: unless-stopped
     depends_on:
       - oauth-server
