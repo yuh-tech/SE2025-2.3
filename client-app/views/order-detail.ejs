@@ -1,0 +1,468 @@
+<%
+  const ord = order || {};
+  const list = Array.isArray(items) ? items : [];
+
+  // reviewedMap truyền từ server: { [productId]: true }
+  const reviewed = (typeof reviewedMap !== 'undefined' && reviewedMap) ? reviewedMap : {};
+
+  const status = String(ord.status || 'pending').toLowerCase();
+
+  const createdAt   = ord.created_at ? new Date(ord.created_at) : null;
+  const shippedAt   = ord.shipped_at ? new Date(ord.shipped_at) : null;
+  const deliveredAt = ord.delivered_at ? new Date(ord.delivered_at) : null;
+  const etaDate     = ord.eta_date ? new Date(ord.eta_date) : null;
+
+  function fmtDate(d){
+    if(!d) return '';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  function fmtTime(d){
+    if(!d) return '';
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    return `${hh}:${mi}`;
+  }
+
+  const statusLabelMap = {
+    pending: 'Chờ xác nhận',
+    processing: 'Đang xử lý',
+    shipped: 'Đang giao',
+    done: 'Hoàn tất',
+    returning: 'Đang hoàn',
+    returned: 'Đã hoàn',
+    cancelled: 'Đã huỷ'
+  };
+  const statusLabel = statusLabelMap[status] || status;
+
+  // step timeline
+  const stepIndex = (() => {
+    if (status === 'cancelled') return -1;
+    if (status === 'pending') return 0;
+    if (status === 'processing') return 1;
+    if (status === 'shipped') return 2;
+    if (status === 'done') return 3;
+    if (status === 'returning') return 4;
+    if (status === 'returned') return 5;
+    return 0;
+  })();
+
+  // late apology (bạn đang truyền isLate từ server cũng được)
+  const isLateApology = !!(typeof isLate !== 'undefined' ? isLate : false);
+  const etaText = etaDate ? fmtDate(etaDate) : '';
+
+  // Return flow flags (dùng cột int 0/1 trong orders.db)
+  const isReturnRequested = Number(ord.return_requested || 0) === 1; // khách gửi yêu cầu hoàn
+  const isReturnBlocked   = Number(ord.return_blocked || 0) === 1;   // admin từ chối => khóa hoàn vĩnh viễn
+
+  // Nếu user đã đánh giá bất kỳ sản phẩm nào trong đơn => KHÓA hoàn
+  const anyReviewed = Object.keys(reviewed).length > 0;
+
+  const isDoneOrder = (status === 'done' || status === 'returning' || status === 'returned');
+
+  // Hoàn (yêu cầu hoàn theo đơn) chỉ khi:
+  // - đơn done
+  // - chưa review gì
+  // - chưa gửi yêu cầu hoàn
+  // - chưa bị admin block
+  const canRequestReturn = (status === 'done' && !anyReviewed && !isReturnRequested && !isReturnBlocked);
+%>
+
+
+<div class="order-page container">
+  <div class="order-topbar">
+    <div>
+      <h1 class="order-title">Chi tiết đơn hàng</h1>
+      <div class="order-meta">
+        <span class="code">Mã đơn: <strong>#<%= ord.id %></strong></span>
+        <span class="dot">•</span>
+        <span class="stt">Trạng thái: <span class="badge badge-<%= status %>"><%= statusLabel %></span></span>
+      </div>
+    </div>
+
+    <a class="btn-back" href="/my-orders">← Quay lại đơn hàng</a>
+  </div>
+
+  <% if (isLateApology) { %>
+    <div class="apology">
+      <div class="apology-title">Xin lỗi bạn 😥</div>
+      <div class="apology-desc">
+        Đơn hàng đang giao chậm hơn dự kiến. Hệ thống đã gia hạn thời gian giao hàng thêm <strong>2 ngày</strong>.
+      </div>
+      <% if (etaText) { %>
+        <div class="apology-eta">Dự kiến nhận trước: <strong><%= etaText %></strong></div>
+      <% } %>
+    </div>
+  <% } %>
+
+  <!-- ===== TRACKING CARD ===== -->
+  <div class="card">
+    <div class="card-head">
+      <h2>Theo dõi đơn hàng</h2>
+      <% if (etaText && status !== 'done' && status !== 'cancelled') { %>
+        <div class="eta">
+          Nhận trước <strong><%= etaText %></strong>
+        </div>
+      <% } %>
+      <% if (status === 'done' && deliveredAt) { %>
+        <div class="eta success">
+          Giao hàng thành công lúc <strong><%= fmtTime(deliveredAt) %> <%= fmtDate(deliveredAt) %></strong>
+        </div>
+      <% } %>
+    </div>
+
+    <% if (status !== 'cancelled') { %>
+      <div class="timeline">
+        <div class="step <%= stepIndex >= 0 ? 'active' : '' %>">
+          <div class="dot"></div>
+          <div class="txt">
+            <div class="name">Đặt hàng</div>
+            <div class="sub">
+              <% if (createdAt) { %>
+                <%= fmtTime(createdAt) %> <%= fmtDate(createdAt) %>
+              <% } else { %>
+                --
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <div class="bar <%= stepIndex >= 1 ? 'active' : '' %>"></div>
+
+        <div class="step <%= stepIndex >= 1 ? 'active' : '' %>">
+          <div class="dot"></div>
+          <div class="txt">
+            <div class="name">Xác nhận / xử lý</div>
+            <div class="sub">
+              <% if (status === 'pending') { %>Đang chờ shop xác nhận<% } %>
+              <% if (status === 'processing') { %>Shop đang chuẩn bị hàng<% } %>
+              <% if (stepIndex > 1) { %>Đã xử lý<% } %>
+            </div>
+          </div>
+        </div>
+
+        <div class="bar <%= stepIndex >= 2 ? 'active' : '' %>"></div>
+
+        <div class="step <%= stepIndex >= 2 ? 'active' : '' %>">
+          <div class="dot"></div>
+          <div class="txt">
+            <div class="name">Đang giao</div>
+            <div class="sub">
+                <% if (status === 'done' || status === 'returning' || status === 'returned') { %>
+                    Đã giao hàng
+                    <% if (deliveredAt) { %> • <%= fmtDate(deliveredAt) %><% } %>
+                <% } else if (status === 'shipped') { %>
+                    Đang giao
+                    <% if (shippedAt) { %> • Bắt đầu giao: <%= fmtDate(shippedAt) %><% } %>
+                <% } else { %>
+                    Chưa giao
+                <% } %>
+            </div>
+
+
+          </div>
+        </div>
+
+        <div class="bar <%= stepIndex >= 3 ? 'active' : '' %>"></div>
+
+        <div class="step <%= stepIndex >= 3 ? 'active' : '' %>">
+          <div class="dot"></div>
+          <div class="txt">
+            <div class="name">Hoàn tất</div>
+            <div class="sub">
+              <% if (status === 'done') { %>Đã nhận hàng<% } else { %>Chờ giao thành công<% } %>
+            </div>
+          </div>
+        </div>
+
+        <% if (stepIndex >= 4) { %>
+          <div class="bar active"></div>
+          <div class="step active">
+            <div class="dot"></div>
+            <div class="txt">
+              <div class="name">Hoàn hàng</div>
+              <div class="sub">
+                <% if (status === 'returning') { %>Đang xử lý hoàn hàng<% } %>
+                <% if (status === 'returned') { %>Đã hoàn hàng<% } %>
+              </div>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    <% } else { %>
+      <div class="cancel-box">
+        Đơn hàng đã bị huỷ.
+      </div>
+    <% } %>
+  </div>
+
+  <!-- ===== SHIPPING INFO ===== --!>
+  <div class="card">
+    <h2>Thông tin giao hàng</h2>
+    <div class="grid2">
+      <div class="info">
+        <div class="label">SĐT</div>
+        <div class="value"><%= ord.phone || '-' %></div>
+      </div>
+      <div class="info">
+        <div class="label">Thanh toán</div>
+        <div class="value"><%= (ord.payment_method || 'cod').toUpperCase() %></div>
+      </div>
+      <div class="info span2">
+        <div class="label">Địa chỉ</div>
+        <div class="value"><%= ord.address || '-' %></div>
+      </div>
+    </div>
+  </div>
+
+  <! -- ===== ITEMS ===== -->
+  <div class="card">
+    <div class="card-head">
+      <h2>Sản phẩm</h2>
+      <div class="total">
+        Tổng tiền: <strong><%= Number(ord.total || 0).toLocaleString('vi-VN') %> ₫</strong>
+      </div>
+    </div>
+
+<div class="items">
+    <% if (list.length === 0) { %>
+        <div class="empty">Không có sản phẩm trong đơn.</div>
+    <% } %>
+
+    <% list.forEach(it => { %>
+        <div class="item">
+        <div class="left">
+            <img src="<%= it.product_image || '' %>" alt="">
+            <div class="meta">
+            <div class="name"><%= it.product_name || ('SP #' + it.product_id) %></div>
+            <div class="variant">
+                Màu: <strong><%= it.color || '-' %></strong> • Size: <strong><%= it.size || '-' %></strong>
+            </div>
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="price"><%= Number(it.price || 0).toLocaleString('vi-VN') %> ₫</div>
+            <div class="qty">x<%= it.quantity %></div>
+            <div class="sub">
+            <%= (Number(it.price||0)*Number(it.quantity||0)).toLocaleString('vi-VN') %> ₫
+            </div>
+        </div>
+
+        <%
+            // Đánh giá chỉ mở khi đơn done, và sản phẩm này chưa được đánh giá
+            const canReviewItem = (status === 'done' && !reviewed[it.product_id]);
+        %>
+
+        <div class="item-actions">
+            <% if (canReviewItem) { %>
+            <a class="btn btn-primary"
+                href="/orders/<%= ord.id %>/review/<%= it.product_id %>">
+                Đánh giá
+            </a>
+            <% } else if (reviewed[it.product_id]) { %>
+            <span class="badge success">✔ Đã đánh giá</span>
+            <% } else { %>
+            <span class="hint">Đánh giá sẽ mở khi đơn <b>Hoàn tất</b>.</span>
+            <% } %>
+        </div>
+        </div>
+    <% }) %>
+    </div>
+
+    <!-- ACTIONS CHUNG CỦA ĐƠN (đặt ngoài vòng lặp) -->
+    <div class="actions" style="margin-top:16px;">
+    <% if (canRequestReturn) { %>
+        <form method="POST" action="/orders/<%= ord.id %>/return-request" style="display:inline;">
+        <button class="btn btn-outline" type="submit">Yêu cầu hoàn</button>
+        </form>
+        <span class="hint" style="margin-left:10px;">(Chỉ được yêu cầu hoàn khi chưa đánh giá sản phẩm nào)</span>
+
+    <% } else if (isReturnRequested) { %>
+        <span class="badge">Đang chờ admin duyệt hoàn</span>
+
+    <% } else if (isReturnBlocked) { %>
+        <span class="badge">Yêu cầu hoàn đã bị từ chối</span>
+        <span class="hint" style="margin-left:10px;">Bạn chỉ có thể đánh giá, không thể hoàn lại.</span>
+
+    <% } else if (anyReviewed) { %>
+        <span class="badge">Đã đánh giá → Không thể hoàn</span>
+
+    <% } %>
+    </div>
+
+</div>
+
+<%- include('partials/footer') %>
+
+<style>
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+  .order-page { padding: 26px 0 60px; }
+
+  .order-topbar{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:16px;
+    margin-bottom: 18px;
+  }
+  .order-title{ margin:0; font-size:28px; color:#222; }
+  .order-meta{ margin-top:8px; color:#666; font-size:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .order-meta .dot{ opacity:.6; }
+
+  .btn-back{
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:10px 14px; border-radius:12px; text-decoration:none;
+    border:1px solid #e6e6e6; background:#fff; color:#333; font-weight:600;
+    transition:.15s;
+  }
+  .btn-back:hover{ transform: translateY(-1px); box-shadow: 0 10px 25px rgba(0,0,0,.08); }
+
+  .badge{
+    display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px;
+    font-weight:700; font-size:12px;
+    background:#f3f4f6; color:#111;
+    border:1px solid #eee;
+  }
+  .badge-pending{ background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+  .badge-processing{ background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+  .badge-shipped{ background:#ecfeff; border-color:#a5f3fc; color:#155e75; }
+  .badge-done{ background:#ecfdf5; border-color:#bbf7d0; color:#166534; }
+  .badge-returning{ background:#fdf2f8; border-color:#fbcfe8; color:#9d174d; }
+  .badge-returned{ background:#f5f3ff; border-color:#ddd6fe; color:#5b21b6; }
+  .badge-cancelled{ background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+
+  .card{
+    background:#fff;
+    border-radius:18px;
+    border:1px solid #eee;
+    box-shadow: 0 10px 30px rgba(0,0,0,.06);
+    padding:18px 18px;
+    margin-top:16px;
+  }
+  .card h2{ margin:0 0 12px; font-size:18px; color:#222; }
+  .card-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  .eta{ color:#333; background:#f8fafc; border:1px solid #eef2f7; padding:8px 12px; border-radius:12px; font-size:14px; }
+  .eta.success{ background:#ecfdf5; border-color:#bbf7d0; color:#166534; }
+
+  .apology{
+    background:#fff1f2;
+    border:1px solid #fecdd3;
+    padding:14px 16px;
+    border-radius:16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,.06);
+  }
+  .apology-title{ font-weight:800; color:#9f1239; margin-bottom:4px; }
+  .apology-desc{ color:#7f1d1d; font-size:14px; line-height:1.5; }
+  .apology-eta{ margin-top:8px; color:#111; }
+
+  .timeline{
+    display:flex; align-items:center; gap:10px; padding: 6px 2px 2px;
+    overflow:auto;
+  }
+  .step{ display:flex; align-items:center; gap:10px; min-width: 190px; }
+  .step .dot{
+    width:12px; height:12px; border-radius:50%;
+    background:#e5e7eb;
+    box-shadow: inset 0 0 0 3px #fff, 0 0 0 1px #e5e7eb;
+  }
+  .step.active .dot{
+    background:#22c55e;
+    box-shadow: inset 0 0 0 3px #fff, 0 0 0 1px #22c55e;
+  }
+  .step .txt .name{ font-weight:800; color:#111; font-size:14px; }
+  .step .txt .sub{ color:#6b7280; font-size:13px; margin-top:2px; }
+  .bar{
+    height:2px; width:48px; background:#e5e7eb; border-radius:999px; flex:0 0 auto;
+  }
+  .bar.active{ background:#22c55e; }
+
+  .cancel-box{
+    background:#fef2f2; border:1px solid #fecaca;
+    padding:12px; border-radius:12px; color:#991b1b; font-weight:700;
+  }
+
+  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:8px; }
+  .info{ background:#f8fafc; border:1px solid #eef2f7; border-radius:14px; padding:12px; }
+  .info .label{ color:#6b7280; font-size:12px; font-weight:700; }
+  .info .value{ color:#111; margin-top:4px; font-weight:700; }
+  .span2{ grid-column: span 2; }
+
+  .items{ margin-top: 8px; display:flex; flex-direction:column; gap:12px; }
+  .item{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    border:1px solid #eee; border-radius:16px; padding:12px;
+  }
+  .item .left{ display:flex; align-items:center; gap:12px; }
+  .item img{ width:64px; height:64px; object-fit:cover; border-radius:12px; border:1px solid #eee; }
+  .item .name{ font-weight:800; color:#111; }
+  .item .variant{ color:#6b7280; font-size:13px; margin-top:4px; }
+  .item .right{ text-align:right; }
+  .item .price{ font-weight:800; color:#111; }
+  .item .qty{ color:#6b7280; margin-top:2px; font-size:13px; }
+  .item .sub{ margin-top:6px; font-weight:900; color:#ff6b9d; }
+
+  .actions{
+    display:flex; align-items:center; justify-content:flex-end; gap:10px;
+    margin-top: 16px; flex-wrap:wrap;
+  }
+  .btn{
+    padding:10px 14px; border-radius:12px; text-decoration:none; font-weight:800;
+    border:1px solid transparent; display:inline-flex; align-items:center; justify-content:center;
+    transition:.15s;
+  }
+  .btn-outline{ background:#fff; border-color:#ffd1e1; color:#ff3d86; }
+  .btn-outline:hover{ transform: translateY(-1px); box-shadow: 0 10px 25px rgba(0,0,0,.08); }
+  .btn-primary{ background:#ff6b9d; color:#fff; }
+  .btn-primary:hover{ background:#e55a87; transform: translateY(-1px); box-shadow: 0 10px 25px rgba(0,0,0,.10); }
+  .hint{ color:#6b7280; font-size:14px; margin-right:auto; }
+
+  @media (max-width: 640px){
+    .order-topbar{ flex-direction:column; align-items:flex-start; }
+    .grid2{ grid-template-columns: 1fr; }
+    .span2{ grid-column: auto; }
+    .step{ min-width: 170px; }
+  }
+  .item-actions{
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.btn-primary{
+  background: #ff6b9d;
+  color: #fff;
+}
+
+.btn-primary:hover{
+  filter: brightness(0.95);
+}
+
+.btn-outline{
+  background: #fff;
+  color: #ff6b9d;
+  border-color: #ff6b9d;
+}
+
+.btn-outline:hover{
+  background: #fff3f7;
+}
+
+.hint{
+  color: #888;
+  font-size: 13px;
+}
+
+</style>

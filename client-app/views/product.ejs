@@ -29,12 +29,20 @@
     <div class="product-info-right">
       <h1><%= product.name %></h1>
 
+      <%
+        const rv = (reviews || []);
+        const avgRating = rv.length
+          ? (rv.reduce((s, r) => s + Number(r.rating || 0), 0) / rv.length)
+          : 0;
+      %>
+
       <div class="rating">
         <% for (let i = 1; i <= 5; i++) { %>
-        <i class="fas fa-star <%= i <= (product.rating || 4.8) ? 'filled' : '' %>"></i>
+          <i class="fas fa-star <%= i <= Math.round(avgRating) ? 'filled' : '' %>"></i>
         <% } %>
-        <span class="review-count">(128 đánh giá)</span>
+        <span class="review-count">(<%= rv.length %> đánh giá)</span>
       </div>
+
 
       <%
   const saleOk = product.salePrice && product.salePrice < product.price;
@@ -119,15 +127,24 @@
   <!-- Đánh giá -->
   <div class="reviews-section">
     <h2>Đánh giá từ khách hàng</h2>
-    <div class="review">
-      <strong>Lan Anh</strong> ★★★★★
-      <p>Áo đẹp lắm ạ, mặc thoải mái, shop gói cẩn thận</p>
-    </div>
-    <div class="review">
-      <strong>Minh Thư</strong> ★★★★☆
-      <p>Hàng y hình, giao nhanh, sẽ ủng hộ lâu dài</p>
-    </div>
+
+    
+
+    <% if (rv.length === 0) { %>
+      <div class="review"><p>Chưa có đánh giá nào.</p></div>
+    <% } else { %>
+      <% rv.forEach(r => { %>
+        <div class="review">
+          <strong><%= r.displayName || 'Khách hàng' %></strong>
+          <span>
+            <%= '★'.repeat(Number(r.rating || 0)) %><%= '☆'.repeat(5 - Number(r.rating || 0)) %>
+          </span>
+          <p><%= r.comment || '' %></p>
+        </div>
+      <% }) %>
+    <% } %>
   </div>
+
 </div>
 
 <%- include('partials/footer') %>
