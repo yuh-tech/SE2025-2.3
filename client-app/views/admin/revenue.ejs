@@ -1,0 +1,143 @@
+<%- include('../partials/header') %>
+
+<div class="admin-container">
+  <div class="page-head">
+    <h1 class="admin-title">Doanh thu theo ngày</h1>
+
+    <div class="head-actions">
+      <a class="btn-ghost" href="/admin">← Quay lại Dashboard</a>
+      <a class="btn-pill <%= String(days)==='7' ? 'active' : '' %>" href="/admin/revenue?days=7">7 ngày</a>
+      <a class="btn-pill <%= String(days)==='30' ? 'active' : '' %>" href="/admin/revenue?days=30">30 ngày</a>
+    </div>
+  </div>
+
+  <!-- ✅ Tổng doanh thu -->
+  <div class="summary">
+    <div class="summary-card">
+      <div class="summary-label">Tổng doanh thu (<%= days %> ngày)</div>
+      <div class="summary-value"><%= (totalRevenuePeriod || 0).toLocaleString('vi-VN') %> ₫</div>
+    </div>
+  </div>
+
+  <!-- ✅ ĐƯA BẢNG LÊN TRÊN -->
+  <h2 class="section-title">Bảng doanh thu theo ngày</h2>
+  <div class="table-container">
+    <table class="styled-table">
+      <thead>
+        <tr>
+          <th>Ngày</th>
+          <th style="text-align:right;">Doanh thu</th>
+          <th style="text-align:right;">Số đơn (done)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% const rows = Array.isArray(revenueByDay) ? revenueByDay : []; %>
+        <% if (!rows.length) { %>
+          <tr><td colspan="3">Chưa có dữ liệu.</td></tr>
+        <% } else { %>
+          <% rows.forEach(r => { %>
+            <tr>
+              <td><%= r.day %></td>
+              <td style="text-align:right;"><strong><%= (r.revenue || 0).toLocaleString('vi-VN') %> ₫</strong></td>
+              <td style="text-align:right;"><%= r.orders_count || 0 %></td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ✅ CHART XUỐNG DƯỚI -->
+  <h2 class="section-title">Biểu đồ doanh thu</h2>
+  <div class="chart-wrap">
+    <canvas id="revenueChart"></canvas>
+    <div id="noData" class="no-data" style="display:none;">
+      Chưa có dữ liệu doanh thu trong <%= days %> ngày gần nhất.
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const safe = <%- JSON.stringify(Array.isArray(revenueByDay) ? revenueByDay : []) %>;
+
+  const labels = safe.map(x => x.day);
+  const data = safe.map(x => Number(x.revenue || 0));
+
+  const canvas = document.getElementById('revenueChart');
+  const noData = document.getElementById('noData');
+
+  if (!labels.length) {
+    canvas.style.display = 'none';
+    noData.style.display = 'block';
+  } else {
+    new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Doanh thu (₫)',
+          data,
+          borderColor: '#4e73df',
+          backgroundColor: 'rgba(78,115,223,0.12)',
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+</script>
+
+<style>
+.admin-container{max-width:1200px;margin:40px auto;padding:0 20px;font-family:'Segoe UI',sans-serif;}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.admin-title{margin:0;font-size:34px;color:#222;}
+.head-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn-ghost{padding:10px 14px;border-radius:12px;background:#eef2ff;color:#1f2a6a;text-decoration:none;font-weight:700}
+.btn-pill{padding:10px 14px;border-radius:999px;border:1px solid #ddd;background:#fff;text-decoration:none;color:#333;font-weight:700}
+.btn-pill.active{background:#4e73df;color:#fff;border-color:#4e73df}
+
+.summary{margin:14px 0 16px}
+.summary-card{background:#fff;border-radius:16px;padding:16px 18px;box-shadow:0 6px 18px rgba(0,0,0,.06);display:inline-block}
+.summary-label{color:#6b7280;font-weight:700;font-size:13px;margin-bottom:6px}
+.summary-value{font-size:24px;font-weight:900}
+
+.section-title{margin:18px 0 12px;font-size:20px}
+
+/* ✅ Table lên trước: cho nổi giống chart */
+.table-container{overflow-x:auto;margin-top:10px;margin-bottom:18px}
+.styled-table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 6px 18px rgba(0,0,0,.06)
+}
+.styled-table th,.styled-table td{padding:12px 14px;text-align:left}
+.styled-table thead tr{background:#4e73df;color:#fff;font-weight:800}
+.styled-table tbody tr{border-bottom:1px solid #eee}
+.styled-table tbody tr:nth-of-type(even){background:#fafafa}
+.styled-table tbody tr:hover{background:#f3f7ff}
+
+/* ✅ Chart xuống dưới */
+.chart-wrap{
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 6px 18px rgba(0,0,0,.06);
+  padding:16px 16px 12px;
+  margin-bottom: 20px;
+}
+.no-data{color:#666;padding:14px}
+</style>
