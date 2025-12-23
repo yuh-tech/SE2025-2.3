@@ -1,18 +1,18 @@
 /**
- * User Service - Xác thực và quản lý người dùng (PostgreSQL + Prisma)
+ * User Service - Xác thực và quản lý người dùng (MySQL + Prisma)
  */
 
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { getPrisma } from '../utils/prisma.js';
 
-// Prisma client singleton
-const prisma = new PrismaClient();
+// Prisma client singleton (see utils/prisma.js)
+const prisma = getPrisma();
 
 // Map User record từ DB sang object claims-friendly (không trả passwordHash)
 function mapUser(user) {
   if (!user) return null;
-  const roles = Array.isArray(user.roles) ? user.roles : [];
-  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+  const roles = Array.isArray(user.roles) ? user.roles : user.roles ? user.roles : [];
+  const permissions = Array.isArray(user.permissions) ? user.permissions : user.permissions ? user.permissions : [];
   return {
     id: user.id,
     username: user.username,
@@ -44,6 +44,12 @@ async function authenticate(username, password) {
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return null;
+
+    // Cập nhật lastLoginAt giúp theo dõi
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
     return mapUser(user);
   } catch (err) {
@@ -226,7 +232,6 @@ class Account {
 }
 
 export {
-  prisma,
   authenticate,
   findById,
   findByUsername,

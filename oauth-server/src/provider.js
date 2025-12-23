@@ -53,7 +53,7 @@ async function createProvider(issuer) {
     // Các cấu hình động (không thể đặt trong settings.js)
     jwks,                    // Generated mỗi lần khởi động
     findAccount: Account.findAccount,  // Function từ userService
-    adapter: createAdapter,  // Factory function từ db.js
+    adapter: createAdapter,  // Prisma-backed adapter (lưu vào bảng OidcAdapter)
     clients,                 // Load từ config/clients.js
     
     // Override một số cấu hình nếu cần

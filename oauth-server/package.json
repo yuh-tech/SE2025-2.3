@@ -6,11 +6,16 @@
 
   "type": "module",
   "scripts": {
+    "prestart": "prisma generate",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "prisma": "prisma",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "keywords": [
     "oauth2",

@@ -181,7 +181,7 @@ router.get('/login', async (req, res) => {
         <form method="POST" action="/login${uid ? `?uid=${uid}` : ''}">
           <div class="field">
             <label for="username">Tên đăng nhập</label>
-            <input id="username" name="username" type="text" required autofocus placeholder="admin / user / demo" />
+            <input id="username" name="username" type="text" required autofocus placeholder="Tên đăng nhập" />
           </div>
           <div class="field">
             <label for="password">Mật khẩu</label>
@@ -189,15 +189,6 @@ router.get('/login', async (req, res) => {
           </div>
           <button type="submit" class="btn">Đăng nhập</button>
         </form>
-
-        <div class="demo">
-          <h3>Tài khoản demo</h3>
-          <div class="demo-grid">
-            <div class="demo-item"><strong>admin</strong><br/>admin123</div>
-            <div class="demo-item"><strong>user</strong><br/>user123</div>
-            <div class="demo-item"><strong>demo</strong><br/>demo123</div>
-          </div>
-        </div>
       </div>
     </body>
     </html>
