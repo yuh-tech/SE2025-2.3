@@ -1,0 +1,160 @@
+// Prisma schema for OAuth Server
+// Database: MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String   @id @default(uuid())
+  username             String   @unique
+  passwordHash         String
+  email                String?  @unique
+  emailVerified        Boolean  @default(false)
+  name                 String?
+  givenName            String?
+  familyName           String?
+  nickname             String?
+  picture              String?
+  phoneNumber          String?
+  phoneNumberVerified  Boolean  @default(false)
+  roles                Json?
+  permissions          Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  lastLoginAt          DateTime?
+
+  rememberedLogins     RememberedLogin[]
+  consents             Consent[]
+  sessions             Session[]
+  tokens               Token[]
+  codes                AuthorizationCode[]
+}
+
+model RememberedLogin {
+  id         String   @id @default(uuid())
+  userId     String
+  deviceId   String
+  lastUsedAt DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model OAuthClient {
+  id                       String   @id @default(uuid())
+  clientId                 String   @unique
+  clientSecret             String?
+  name                     String?
+  redirectUris             Json?
+  postLogoutRedirectUris   Json?
+  grantTypes               Json?
+  responseTypes            Json?
+  scope                    String?
+  tokenEndpointAuthMethod  String?
+  logoUri                  String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  codes    AuthorizationCode[]
+  tokens   Token[]
+  consents Consent[]
+}
+
+model AuthorizationCode {
+  id                   String   @id @default(uuid())
+  code                 String   @unique
+  userId               String
+  clientId             String
+  scope                String?
+  codeChallenge        String?
+  codeChallengeMethod  String?
+  redirectUri          String?
+  expiresAt            DateTime
+  used                 Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client  OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([expiresAt])
+}
+
+model Token {
+  id            String   @id @default(uuid())
+  type          String   // access_token / refresh_token / id_token (if stored)
+  value         String   @unique
+  userId        String?
+  clientId      String
+  scope         String?
+  expiresAt     DateTime
+  revoked       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  parentTokenId String?
+
+  user     User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  client   OAuthClient  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent   Token?       @relation("TokenFamily", fields: [parentTokenId], references: [id])
+  children Token[]      @relation("TokenFamily")
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([expiresAt])
+  @@index([revoked])
+}
+
+model Consent {
+  id        String   @id @default(uuid())
+  userId    String
+  clientId  String
+  scope     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client  OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([clientId])
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         String?
+  sessionHandle  String   @unique
+  data           Json?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Generic store cho oidc-provider adapter (lưu token/code/session/interaction)
+model OidcAdapter {
+  id         String   @id                    // key = `${kind}:${idRaw}`
+  kind       String                           // AccessToken, RefreshToken, AuthorizationCode, Session, Interaction, etc.
+  payload    Json
+  grantId    String?
+  userCode   String? @unique
+  uid        String? @unique
+  expiresAt  DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([grantId])
+  @@index([expiresAt])
+}
