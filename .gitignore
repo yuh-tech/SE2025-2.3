@@ -42,3 +42,8 @@ coverage/
 # Production
 dist/
 build/
+
+# Database files
+client-app/database/*.db
+client-app/database/*.sqlite
+client-app/database/*.sqlite3
