@@ -37,7 +37,8 @@ Một **website bán hàng thời trang** được xây dựng để:
 - Đóng vai trò **Client Application minh hoạ**
 - Mô phỏng kịch bản người dùng đăng nhập và sử dụng hệ thống sau xác thực
 - Thể hiện tích hợp OAuth/OIDC vào một web ứng dụng thực tế
-
+  
+![Web bán hàng](docs/images/{A5D7444F-D2B2-45DE-8AB9-92CF9B4DF802}.png)
 ---
 
 ### 1.3. Technical Objectives (Mục tiêu kỹ thuật)
