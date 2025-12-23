@@ -76,38 +76,7 @@ Trong đồ án này, **website bán hàng thời trang** được sử dụng l
 
 ---
 
-## 4. Project Structure
-SE2025_2-#/
-├── authorization-server/
-│   ├── database/                # CSDL người dùng, client, token
-│   ├── routes/                  # OAuth endpoints (authorize, token, userinfo)
-│   ├── services/                # Xử lý logic xác thực & cấp token
-│   ├── views/                   # Giao diện đăng nhập / consent
-│   ├── server.js                # Entry point Authorization Server
-│   └── package.json
-│
-├── client-app/
-│   ├── database/                # SQLite DB (products, orders, customers)
-│   ├── public/
-│   │   ├── uploads/             # Ảnh sản phẩm upload
-│   │   ├── images/              
-│   │   └── style.css
-│   ├── scripts/
-│   │   └── seed_products.js     # Script seed dữ liệu sản phẩm demo
-│   ├── views/
-│   │   ├── admin/               # Giao diện quản trị
-│   │   ├── partials/            # Header / Footer dùng chung
-│   │   └── *.ejs                # Các view phía client
-│   ├── server.js                # Logic xử lý Client Application
-│   ├── start_server.js          # File khởi chạy client-app
-│   └── package.json
-│
-├── README.md                    # Báo cáo đồ án 
-└── package.json
-
----
-
-## 5. Authentication Flow Overview
+## 4. Authentication Flow Overview
 Hệ thống thực hiện luồng xác thực theo chuẩn OAuth 2.0 / OpenID Connect:
 1. Người dùng truy cập Client Application
 2. Client chuyển hướng người dùng tới Authorization Server
@@ -118,14 +87,14 @@ Hệ thống thực hiện luồng xác thực theo chuẩn OAuth 2.0 / OpenID C
 
 ---
 
-## 6. Conclusion
+## 5. Conclusion
 Đồ án đã xây dựng thành công một **hệ thống OAuth / OpenID Connect hoàn chỉnh**, đáp ứng đầy đủ các thành phần cốt lõi của cơ chế xác thực và uỷ quyền hiện đại.
 
 Client Application được xây dựng nhằm minh hoạ khả năng tích hợp OAuth/OpenID Connect vào một hệ thống web thực tế, từ đó chứng minh tính ứng dụng và hiệu quả của mô hình.
 
 ---
 
-## 7. References
+## 6. References
 - OAuth 2.0 Specification
 - OpenID Connect Core Specification
 - Node.js Documentation
