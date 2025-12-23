@@ -1,9 +1,9 @@
-# ĐỒ ÁN: OAUTH / OPENID CONNECT SYSTEM
+# OAUTH / OPENID CONNECT SYSTEM
 
 ## 1. Goals and Objectives
 
 ### 1.1. Goal (Mục tiêu tổng quát)
-Mục tiêu của đồ án là xây dựng một **hệ thống OAuth 2.0 và OpenID Connect hoàn chỉnh**, bao gồm:
+Xây dựng một **hệ thống OAuth 2.0 và OpenID Connect hoàn chỉnh**, bao gồm:
 - **Authorization Server** (máy chủ xác thực & cấp phát token)
 - **Client Application** (ứng dụng client sử dụng cơ chế OAuth/OIDC)
 
@@ -16,7 +16,7 @@ Hệ thống mô phỏng cơ chế **xác thực (Authentication)** và **uỷ q
 
 ### 1.2. Objectives (Mục tiêu cụ thể)
 
-#### 1.2.1. Đối với Authorization Server
+#### 1.2.1. Authorization Server
 Authorization Server cần đáp ứng:
 - Xác thực người dùng (Login)
 - Cấp **Authorization Code**
@@ -25,20 +25,18 @@ Authorization Server cần đáp ứng:
 - Quản lý thông tin định danh (User/Claims)
 - Đảm bảo luồng đúng chuẩn OAuth 2.0 / OpenID Connect
 
-#### 1.2.2. Đối với Client Application
+#### 1.2.2. Client Application
 Client Application cần:
 - Redirect người dùng sang Authorization Server để đăng nhập
 - Nhận Authorization Code và thực hiện trao đổi lấy token
 - Lưu phiên đăng nhập (session) và hiển thị thông tin người dùng
 - Minh hoạ việc áp dụng OAuth/OIDC vào ứng dụng web thực tế
 
-#### 1.2.3. Ứng dụng minh hoạ (Phụ)
+#### 1.2.3. Ứng dụng minh hoạ
 Một **website bán hàng thời trang** được xây dựng để:
 - Đóng vai trò **Client Application minh hoạ**
 - Mô phỏng kịch bản người dùng đăng nhập và sử dụng hệ thống sau xác thực
 - Thể hiện tích hợp OAuth/OIDC vào một web ứng dụng thực tế
-
-> Lưu ý: Website bán hàng là phần minh hoạ phụ, trọng tâm chính của đồ án là hệ thống OAuth/OIDC.
 
 ---
 
