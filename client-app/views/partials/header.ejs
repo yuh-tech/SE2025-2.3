@@ -27,7 +27,7 @@
       <!-- CHƯA LOGIN -->
       <a href="/login">Đăng nhập</a>
       <a href="/signup">Đăng ký</a>
-
+      
     <% } else if (currentUser.role === 'admin') { %>
 
       <!-- ADMIN -->
@@ -45,6 +45,10 @@
 
       <!-- CUSTOMER -->
       <span>Xin chào, <%= currentUser.displayName %></span>
+      
+      <a href="/my-orders" style="font-weight:600; margin-left:14px;">
+        Đơn mua
+      </a>
 
       <a href="/cart" style="position:relative;">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
