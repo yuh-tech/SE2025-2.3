@@ -88,10 +88,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
   session({
+    name: 'clientapp.sid', // tránh đè cookie với oauth-server (cùng domain localhost)
     secret: process.env.SESSION_SECRET || 'secret-key-very-hard-to-guess',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false }
+    cookie: {
+      secure: false,        // set true nếu dùng HTTPS
+      sameSite: 'lax',      // cho phép redirect OAuth nhưng vẫn chặn CSRF cơ bản
+      httpOnly: true,
+    }
   })
 );
 
@@ -502,7 +507,10 @@ app.get('/auth/oauth', (req, res) => {
   
   console.log('🔐 Redirecting to OAuth Server:', authUrl.toString());
   
-  res.redirect(authUrl.toString());
+  // Đảm bảo session được ghi trước khi redirect (tránh mất state)
+  req.session.save(() => {
+    res.redirect(authUrl.toString());
+  });
 });
 
 /**
@@ -597,16 +605,60 @@ app.get('/callback', async (req, res) => {
     const userinfo = await userinfoResponse.json();
     console.log('✅ Userinfo received:', userinfo);
     
+  // Persist/lookup user in local DB (customers) so OAuth login cũng có bản ghi
+  try {
+    const oauthUsername =
+      userinfo.preferred_username ||
+      userinfo.nickname ||
+      userinfo.email ||
+      `oauth_${userinfo.sub}`;
+    const displayName = userinfo.name || oauthUsername;
+
+    let existing = await dbCustomerGet(
+      `SELECT * FROM customers WHERE username = ?`,
+      [oauthUsername]
+    );
+
+    if (!existing) {
+      // Tạo user mới với password rỗng, role customer
+      const insertSql = `
+        INSERT INTO customers (username, displayName, password, role)
+        VALUES (?, ?, ?, 'customer')
+      `;
+      const insertResult = await dbCustomerRun(insertSql, [
+        oauthUsername,
+        displayName,
+        '',
+      ]);
+
+      // Lấy lại bản ghi vừa tạo
+      existing = await dbCustomerGet(
+        `SELECT * FROM customers WHERE id = ?`,
+        [insertResult.lastID]
+      );
+    }
+
+    // Nếu thiếu displayName, bổ sung để hiển thị đẹp
+    if (existing && !existing.displayName) {
+      existing.displayName = displayName;
+    }
+
     // Lưu thông tin user vào session
+    req.session.user = existing;
+  } catch (dbErr) {
+    console.error('❌ OAuth user persistence error:', dbErr);
+    // Dù lỗi DB, vẫn cho login session từ OAuth để không chặn người dùng
     req.session.user = {
       id: userinfo.sub,
-      username: userinfo.preferred_username || userinfo.nickname || userinfo.name,
-      displayName: userinfo.name || userinfo.given_name,
+      username: userinfo.preferred_username || userinfo.nickname || userinfo.email,
+      displayName: userinfo.name || userinfo.nickname,
       email: userinfo.email,
-      role: userinfo.role || 'customer',
-      oauth: true, // Đánh dấu đây là user đăng nhập qua OAuth
+      role: 'customer',
+      oauth: true,
     };
-    
+  }
+  
+    // Lưu thông tin user vào session
     // Lưu tokens vào session (có thể dùng để refresh hoặc call API)
     req.session.tokens = {
       access_token: tokens.access_token,

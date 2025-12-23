@@ -6,203 +6,124 @@
  * hỗ trợ MongoDB, PostgreSQL, MySQL, etc.
  */
 
+import { getPrisma } from './prisma.js';
+
 /**
- * In-Memory Adapter cho OIDC Provider
- * 
- * Adapter này lưu trữ OAuth tokens, authorization codes, sessions, etc.
- * trong bộ nhớ. Trong production, nên sử dụng Redis hoặc database.
+ * Prisma-backed Adapter cho oidc-provider.
+ * Lưu toàn bộ payload (token/code/session/interaction) vào bảng OidcAdapter.
  */
-class MemoryAdapter {
+class PrismaAdapter {
   constructor(name) {
-    this.name = name;
-    this.storage = new Map();
+    this.name = name; // kind
+    this.prisma = getPrisma();
   }
 
   key(id) {
     return `${this.name}:${id}`;
   }
 
+  expiresAtDate(expiresIn) {
+    return expiresIn ? new Date(Date.now() + expiresIn * 1000) : null;
+  }
+
   async upsert(id, payload, expiresIn) {
     const key = this.key(id);
-    
-    const { grantId, userCode } = payload;
-    
-    const expiresAt = expiresIn ? Date.now() + (expiresIn * 1000) : undefined;
-    
-    this.storage.set(key, { 
-      payload, 
-      expiresAt,
-      grantId,
-      userCode,
+    const expiresAt = this.expiresAtDate(expiresIn);
+    const { grantId, userCode, uid } = payload;
+
+    await this.prisma.oidcAdapter.upsert({
+      where: { id: key },
+      update: {
+        payload,
+        grantId,
+        userCode,
+        uid,
+        expiresAt,
+      },
+      create: {
+        id: key,
+        kind: this.name,
+        payload,
+        grantId,
+        userCode,
+        uid,
+        expiresAt,
+      },
     });
-    
-    // Index by grantId
-    if (grantId) {
-      const grantKey = `grant:${grantId}`;
-      const grantIds = this.storage.get(grantKey) || [];
-      grantIds.push(key);
-      this.storage.set(grantKey, grantIds);
-    }
-    
-    // Index by userCode
-    if (userCode) {
-      this.storage.set(`userCode:${userCode}`, key);
-    }
   }
 
   async find(id) {
     const key = this.key(id);
-    const data = this.storage.get(key);
-    
-    if (!data) {
+    const record = await this.prisma.oidcAdapter.findUnique({ where: { id: key } });
+    if (!record) return undefined;
+
+    if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
+      await this.prisma.oidcAdapter.delete({ where: { id: key } });
       return undefined;
     }
-    
-    // Check expiration
-    if (data.expiresAt && data.expiresAt < Date.now()) {
-      this.storage.delete(key);
-      return undefined;
-    }
-    
-    return data.payload;
+
+    return record.payload;
   }
 
   async findByUserCode(userCode) {
-    const key = this.storage.get(`userCode:${userCode}`);
-    
-    if (!key) {
+    if (!userCode) return undefined;
+    const record = await this.prisma.oidcAdapter.findUnique({ where: { userCode } });
+    if (!record) return undefined;
+
+    if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
+      await this.prisma.oidcAdapter.delete({ where: { id: record.id } });
       return undefined;
     }
-    
-    const data = this.storage.get(key);
-    
-    if (!data) {
-      return undefined;
-    }
-    
-    // Check expiration
-    if (data.expiresAt && data.expiresAt < Date.now()) {
-      this.storage.delete(key);
-      return undefined;
-    }
-    
-    return data.payload;
+    return record.payload;
   }
 
   async findByUid(uid) {
-    for (const [key, data] of this.storage.entries()) {
-      if (key.startsWith(this.name) && data.payload?.uid === uid) {
-        // Check expiration
-        if (data.expiresAt && data.expiresAt < Date.now()) {
-          this.storage.delete(key);
-          continue;
-        }
-        return data.payload;
-      }
+    if (!uid) return undefined;
+    const record = await this.prisma.oidcAdapter.findUnique({ where: { uid } });
+    if (!record) return undefined;
+
+    if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
+      await this.prisma.oidcAdapter.delete({ where: { id: record.id } });
+      return undefined;
     }
-    return undefined;
+    return record.payload;
   }
 
   async destroy(id) {
     const key = this.key(id);
-    const data = this.storage.get(key);
-    
-    if (data) {
-      // Remove from grant index
-      if (data.grantId) {
-        const grantKey = `grant:${data.grantId}`;
-        const grantIds = this.storage.get(grantKey) || [];
-        const filtered = grantIds.filter(k => k !== key);
-        if (filtered.length) {
-          this.storage.set(grantKey, filtered);
-        } else {
-          this.storage.delete(grantKey);
-        }
-      }
-      
-      // Remove from userCode index
-      if (data.userCode) {
-        this.storage.delete(`userCode:${data.userCode}`);
-      }
-    }
-    
-    this.storage.delete(key);
+    await this.prisma.oidcAdapter.deleteMany({ where: { id: key } });
   }
 
   async revokeByGrantId(grantId) {
-    const grantKey = `grant:${grantId}`;
-    const grantIds = this.storage.get(grantKey) || [];
-    
-    for (const key of grantIds) {
-      const data = this.storage.get(key);
-      
-      if (data?.userCode) {
-        this.storage.delete(`userCode:${data.userCode}`);
-      }
-      
-      this.storage.delete(key);
-    }
-    
-    this.storage.delete(grantKey);
+    if (!grantId) return;
+    await this.prisma.oidcAdapter.deleteMany({ where: { grantId } });
   }
 
   async consume(id) {
     const key = this.key(id);
-    const data = this.storage.get(key);
-    
-    if (!data) {
-      return;
-    }
-    
-    data.payload.consumed = Math.floor(Date.now() / 1000);
-    this.storage.set(key, data);
+    // Update consumed both in payload and field
+    const record = await this.prisma.oidcAdapter.findUnique({ where: { id: key } });
+    if (!record) return;
+    const payload = { ...record.payload, consumed: Math.floor(Date.now() / 1000) };
+    await this.prisma.oidcAdapter.update({
+      where: { id: key },
+      data: {
+        payload,
+        consumedAt: new Date(),
+      },
+    });
   }
 }
 
 /**
- * Factory function to create adapter instances
+ * Factory function cho oidc-provider
  */
 function createAdapter(name) {
-  return new MemoryAdapter(name);
+  return new PrismaAdapter(name);
 }
-
-/**
- * Database connection (for future use with real database)
- */
-class Database {
-  constructor() {
-    this.connected = false;
-    this.client = null;
-  }
-
-  async connect(connectionString) {
-    // Implement database connection logic here
-    // Example for MongoDB:
-    // const { MongoClient } = require('mongodb');
-    // this.client = await MongoClient.connect(connectionString);
-    // this.connected = true;
-    
-    console.log('Database connection not implemented (using in-memory storage)');
-    this.connected = true;
-  }
-
-  async disconnect() {
-    if (this.client) {
-      // await this.client.close();
-      this.connected = false;
-    }
-  }
-
-  isConnected() {
-    return this.connected;
-  }
-}
-
-const db = new Database();
 
 export {
-  MemoryAdapter,
+  PrismaAdapter,
   createAdapter,
-  db,
 };
 

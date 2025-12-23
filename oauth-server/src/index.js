@@ -9,11 +9,18 @@ dotenv.config();
 import express from 'express';
 import session from 'express-session';
 import path from 'path';
+import { parse as urlParse } from 'url';
+
+// Polyfill URL.parse for oidc-provider on newer Node (URL.parse deprecated/absent)
+if (typeof URL.parse !== 'function') {
+  URL.parse = urlParse;
+}
 
 import { createProvider } from './provider.js';
 import loginRouter from './routes/login.js';
 import interactionRouter from './routes/interaction.js';
 import logoutRouter from './routes/logout.js';
+import { assertDbConnection, disconnectPrisma } from './utils/prisma.js';
 
 // Configuration
 const PORT = process.env.PORT || 3000;
@@ -24,6 +31,7 @@ const app = express();
 
 // Session configuration
 const sessionConfig = {
+  name: 'oauth.sid', // tránh trùng cookie name với client-app (cùng domain localhost)
   secret: process.env.SESSION_SECRET || ['secret-key-1', 'secret-key-2'],
   resave: false,
   saveUninitialized: false,
@@ -300,6 +308,10 @@ app.use(logoutRouter);
 // Mount OIDC Provider
 async function start() {
   try {
+    // Fail fast nếu DB không kết nối được
+    await assertDbConnection();
+    console.log('✅ Connected to database');
+
     await initializeProvider();
     
     // Mount provider routes
@@ -381,12 +393,12 @@ async function start() {
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
   console.log('\n📴 SIGTERM signal received: closing server');
-  process.exit(0);
+  disconnectPrisma().finally(() => process.exit(0));
 });
 
 process.on('SIGINT', () => {
   console.log('\n📴 SIGINT signal received: closing server');
-  process.exit(0);
+  disconnectPrisma().finally(() => process.exit(0));
 });
 
 // Start the server

@@ -2,8 +2,16 @@
  * Danh sách clients được phép kết nối với Authorization Server
  * 
  * Trong production, dữ liệu này nên lưu trong database và có thể
- * đăng ký động thông qua Dynamic Client Registration endpoint
+ * đăng ký động thông qua Dynamic Client Registration endpoint.
+ * Ở đây vẫn giữ client_secret dạng plain để oidc-provider xác thực,
+ * đồng thời bổ sung client_secret_hashed (sha256) cho mục đích lưu trữ an toàn hơn.
  */
+
+import crypto from 'crypto';
+
+function hashSecret(secret) {
+  return secret ? crypto.createHash('sha256').update(secret).digest('hex') : undefined;
+}
 
 // Đây là phần đăng kí của client app vào Authorization Server bằng form đăng kí
 // Tuy nhiên đang test ở đây là form đăng kí được tạo sẵn 
@@ -12,7 +20,8 @@ const clients = [
   {
     // Client App - E-commerce Sunshine Boutique
     client_id: 'my_app',
-    client_secret: 'demo-client-secret', // phần này sau này sẽ lưu vào DB và hash bằng bcrypt
+    client_secret: 'demo-client-secret', // cần plain để provider xác thực
+    client_secret_hashed: hashSecret('demo-client-secret'), // lưu trữ/an audit
     client_name: 'Sunshine Boutique',
     redirect_uris: ['http://localhost:3001/callback'],
     post_logout_redirect_uris: ['http://localhost:3001', 'http://localhost:3001/login'],
@@ -36,6 +45,7 @@ const clients = [
   {
     client_id: 'service_client',
     client_secret: 'service-client-secret',
+    client_secret_hashed: hashSecret('service-client-secret'),
     grant_types: ['client_credentials'],
     scope: 'api:read api:write',
     token_endpoint_auth_method: 'client_secret_post',
