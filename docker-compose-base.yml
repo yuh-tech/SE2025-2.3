@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres-db
+    restart: unless-stopped
+
+    ports:
+      - "5432:5432"  # theo cấu hình db trước đây
+
+    environment:
+      POSTGRES_USER: postgres        
+      POSTGRES_PASSWORD: postgres   
+      POSTGRES_DB: mydb
+      TZ: UTC                      
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  oauth-server:
+    build: ./oauth-server
+    env_file: ./oauth-server/.env
+    environment:
+      # Kết nối tới service postgres qua mạng nội bộ compose (không dùng localhost)
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mydb
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  client-app:
+    build: ./client-app
+    env_file: ./client-app/.env
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    depends_on:
+      - oauth-server
+
+volumes:
+  postgres-data:
