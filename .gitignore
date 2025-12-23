@@ -43,7 +43,7 @@ coverage/
 dist/
 build/
 
-# Database files
-client-app/database/*.db
-client-app/database/*.sqlite
-client-app/database/*.sqlite3
+# # Database files
+# client-app/database/*.db
+# client-app/database/*.sqlite
+# client-app/database/*.sqlite3
